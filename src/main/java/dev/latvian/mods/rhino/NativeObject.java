@@ -378,7 +378,7 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 			}
 			case ConstructorId_setPrototypeOf: {
 				if (args.length < 2) {
-					throw ScriptRuntime.typeError1(cx, "msg.incompat.call", "setPrototypeOf");
+					throw ScriptRuntime.typeError3(cx, "msg.method.missing.parameter", "Object.setPrototypeOf", "2", Integer.toString(args.length));
 				}
 				Scriptable proto = (args[1] == null) ? null : ensureScriptable(args[1], cx);
 				if (proto instanceof Symbol) {
