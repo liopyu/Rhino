@@ -119,10 +119,7 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 	}
 
 	private static NativeString realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
-		if (!(thisObj instanceof NativeString)) {
-			throw incompatibleCallError(f, cx);
-		}
-		return (NativeString) thisObj;
+		return ensureType(thisObj, NativeString.class, f, cx);
 	}
 
 	/*

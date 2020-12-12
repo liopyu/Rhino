@@ -88,9 +88,7 @@ public abstract class ES6Iterator extends IdScriptableObject {
 		}
 		int id = f.methodId();
 
-		if (!(thisObj instanceof ES6Iterator iterator)) {
-			throw incompatibleCallError(f, cx);
-		}
+		ES6Iterator iterator = ensureType(thisObj, ES6Iterator.class, f, cx);
 
 		return switch (id) {
 			case Id_next -> iterator.next(cx, scope);

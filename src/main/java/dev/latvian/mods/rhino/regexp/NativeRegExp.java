@@ -2217,10 +2217,7 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 	}
 
 	private static NativeRegExp realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
-		if (!(thisObj instanceof NativeRegExp)) {
-			throw incompatibleCallError(f, cx);
-		}
-		return (NativeRegExp) thisObj;
+		return ensureType(thisObj, NativeRegExp.class, f, cx);
 	}
 
 	Object lastIndex = ScriptRuntime.zeroObj;     /* index after last match, for //g iterator */

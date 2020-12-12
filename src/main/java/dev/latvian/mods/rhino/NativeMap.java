@@ -89,19 +89,12 @@ public class NativeMap extends IdScriptableObject {
 	}
 
 	private static NativeMap realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
-		if (thisObj == null) {
-			throw incompatibleCallError(f, cx);
+		final NativeMap nm = ensureType(thisObj, NativeMap.class, f, cx);
+		if (!nm.instanceOfMap) {
+			// Check for "Map internal data tag"
+			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", f.getFunctionName());
 		}
-		try {
-			final NativeMap nm = (NativeMap) thisObj;
-			if (!nm.instanceOfMap) {
-				// Check for "Map internal data tag"
-				throw incompatibleCallError(f, cx);
-			}
-			return nm;
-		} catch (ClassCastException cce) {
-			throw incompatibleCallError(f, cx);
-		}
+		return nm;
 	}
 
 	private final Hashtable entries;

@@ -30,19 +30,12 @@ public class NativeWeakSet extends IdScriptableObject {
 	}
 
 	private static NativeWeakSet realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
-		if (thisObj == null) {
-			throw incompatibleCallError(f, cx);
+		final NativeWeakSet ns = ensureType(thisObj, NativeWeakSet.class, f, cx);
+		if (!ns.instanceOfWeakSet) {
+			// Check for "Set internal data tag"
+			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", f.getFunctionName());
 		}
-		try {
-			final NativeWeakSet ns = (NativeWeakSet) thisObj;
-			if (!ns.instanceOfWeakSet) {
-				// Check for "Set internal data tag"
-				throw incompatibleCallError(f, cx);
-			}
-			return ns;
-		} catch (ClassCastException cce) {
-			throw incompatibleCallError(f, cx);
-		}
+		return ns;
 	}
 
 	private final transient WeakHashMap<Scriptable, Boolean> map = new WeakHashMap<>();

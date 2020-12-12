@@ -314,30 +314,19 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 	}
 
 	/**
-	 * Utility method to construct type error to indicate incompatible call
-	 * when converting script thisObj to a particular type is not possible.
-	 * Possible usage would be to have a private function like realThis:
-	 * <pre>
-	 *  private static NativeSomething realThis(Scriptable thisObj,
-	 *                                          IdFunctionObject f)
-	 *  {
-	 *      if (!(thisObj instanceof NativeSomething))
-	 *          throw incompatibleCallError(f);
-	 *      return (NativeSomething)thisObj;
-	 * }
-	 * </pre>
-	 * Note that although such function can be implemented universally via
-	 * java.lang.Class.isInstance(), it would be much more slower.
+	 * Utility method to check that {@code obj} is of the expected type and cast it.
 	 *
-	 * @param f  function that is attempting to convert 'this'
-	 *           object.
-	 * @param cx
-	 * @return Scriptable object suitable for a check by the instanceof
-	 * operator.
-	 * @throws RuntimeException if no more instanceof target can be found
+	 * @throws EcmaError if the cast failed.
 	 */
-	protected static EcmaError incompatibleCallError(IdFunctionObject f, Context cx) {
-		throw ScriptRuntime.typeError1(cx, "msg.incompat.call", f.getFunctionName());
+	@SuppressWarnings("unchecked")
+	protected static <T> T ensureType(Object obj, Class<T> clazz, IdFunctionObject f, Context cx) {
+		if (clazz.isInstance(obj)) {
+			return (T) obj;
+		}
+		if (obj == null) {
+			throw ScriptRuntime.typeError3(cx, "msg.incompat.call.details", f.getFunctionName(), "null", clazz.getName());
+		}
+		throw ScriptRuntime.typeError3(cx, "msg.incompat.call.details", f.getFunctionName(), obj.getClass().getName(), clazz.getName());
 	}
 
 	private transient PrototypeValues prototypeValues;
