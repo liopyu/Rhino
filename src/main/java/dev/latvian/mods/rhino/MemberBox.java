@@ -60,7 +60,8 @@ public final class MemberBox {
 	transient CachedExecutableInfo executableInfo;
 	transient Object delegateTo;
 	public transient WrappedExecutable wrappedExecutable;
-	private transient Function asFunction;
+	private transient Function asGetterFunction;
+	private transient Function asSetterFunction;
 
 	MemberBox(CachedExecutableInfo executableInfo) {
 		this.executableInfo = executableInfo;
@@ -115,12 +116,12 @@ public final class MemberBox {
 	}
 
 	/**
-	 * Function returned by calls to __lookupGetter__/__lookupSetter__
+	 * Function returned by calls to __lookupGetter__
 	 */
-	Function asFunction(String name, Scriptable scope, Scriptable prototype) {
-		if (asFunction == null) {
+	Function asGetterFunction(String name, Scriptable scope, Scriptable prototype) {
+		if (asGetterFunction == null) {
 			MemberBox self = this;
-			asFunction = new BaseFunction(scope, prototype) {
+			asGetterFunction = new BaseFunction(scope, prototype) {
 				@Override
 				public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 					Object getterThis;
@@ -141,7 +142,38 @@ public final class MemberBox {
 				}
 			};
 		}
-		return asFunction;
+		return asGetterFunction;
+	}
+
+	/**
+	 * Function returned by calls to __lookupSetter__
+	 */
+	Function asSetterFunction(String name, Scriptable scope, Scriptable prototype) {
+		if (asSetterFunction == null) {
+			MemberBox self = this;
+			asSetterFunction = new BaseFunction(scope, prototype) {
+				@Override
+				public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+					Object setterThis;
+					Object[] callArgs;
+					Object value = args.length > 0 ? args[0] : Undefined.INSTANCE;
+					if (self.delegateTo == null) {
+						setterThis = thisObj;
+						callArgs = new Object[]{value};
+					} else {
+						setterThis = self.delegateTo;
+						callArgs = new Object[]{thisObj, value};
+					}
+					return self.invoke(setterThis, callArgs, cx, scope);
+				}
+
+				@Override
+				public String getFunctionName() {
+					return name;
+				}
+			};
+		}
+		return asSetterFunction;
 	}
 
 	Object invoke(Object target, Object[] args, Context cx, Scriptable scope) {
