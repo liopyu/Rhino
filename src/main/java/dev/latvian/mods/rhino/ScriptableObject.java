@@ -167,7 +167,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 			String fName = name == null ? "f" : name.toString();
 			if (getter != null) {
 				if (getter instanceof MemberBox box) {
-					desc.defineProperty(cx, "get", box.asGetterFunction(fName, scope, ScriptableObject.getFunctionPrototype(scope, cx)), EMPTY);
+					desc.defineProperty(cx, "get", box.asGetterFunction(cx, fName, scope), EMPTY);
 				} else if (getter instanceof CachedExecutableInfo ex) {
 					desc.defineProperty(cx, "get", new FunctionObject(fName, ex, scope, cx), EMPTY);
 				} else {
@@ -176,7 +176,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 			}
 			if (setter != null) {
 				if (setter instanceof MemberBox box) {
-					desc.defineProperty(cx, "set", box.asSetterFunction(fName, scope, ScriptableObject.getFunctionPrototype(scope, cx)), EMPTY);
+					desc.defineProperty(cx, "set", box.asSetterFunction(cx, fName, scope), EMPTY);
 				} else if (setter instanceof CachedExecutableInfo ex) {
 					desc.defineProperty(cx, "set", new FunctionObject(fName, ex, scope, cx), EMPTY);
 				} else {

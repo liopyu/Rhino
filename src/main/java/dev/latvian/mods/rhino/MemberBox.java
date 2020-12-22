@@ -116,12 +116,13 @@ public final class MemberBox {
 	}
 
 	/**
-	 * Function returned by calls to __lookupGetter__
+	 * Function returned by calls to __lookupGetter__. Note: scope is the scriptable this function
+	 * is related to; therefore this function is constant for this member box, so we can cache it.
 	 */
-	Function asGetterFunction(String name, Scriptable scope, Scriptable prototype) {
+	Function asGetterFunction(Context cx, String name, Scriptable scope) {
 		if (asGetterFunction == null) {
 			MemberBox self = this;
-			asGetterFunction = new BaseFunction(scope, prototype) {
+			asGetterFunction = new BaseFunction(scope, ScriptableObject.getFunctionPrototype(scope, cx)) {
 				@Override
 				public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 					Object getterThis;
@@ -146,12 +147,13 @@ public final class MemberBox {
 	}
 
 	/**
-	 * Function returned by calls to __lookupSetter__
+	 * Function returned by calls to __lookupSetter__. Note: scope is the scriptable this function
+	 * is related to; therefore this function is constant for this member box, so we can cache it.
 	 */
-	Function asSetterFunction(String name, Scriptable scope, Scriptable prototype) {
+	Function asSetterFunction(Context cx, String name, Scriptable scope) {
 		if (asSetterFunction == null) {
 			MemberBox self = this;
-			asSetterFunction = new BaseFunction(scope, prototype) {
+			asSetterFunction = new BaseFunction(scope, ScriptableObject.getFunctionPrototype(scope, cx)) {
 				@Override
 				public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 					Object setterThis;

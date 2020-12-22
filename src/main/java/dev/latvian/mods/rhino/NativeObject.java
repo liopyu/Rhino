@@ -367,7 +367,7 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 				}
 				if (gs != null) {
 					if (gs instanceof MemberBox mb) {
-						return isSetter ? mb.asSetterFunction(s.stringId, f.getParentScope(), f.getPrototype(cx)) : mb.asGetterFunction(s.stringId, f.getParentScope(), f.getPrototype(cx));
+						return isSetter ? mb.asSetterFunction(cx, s.stringId, this) : mb.asGetterFunction(cx, s.stringId, this);
 					}
 					return gs;
 				}
