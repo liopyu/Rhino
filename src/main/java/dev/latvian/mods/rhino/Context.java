@@ -1715,7 +1715,7 @@ public class Context {
 						return unwrappedValue;
 					}
 					return internalJsToJavaLast(unwrappedValue, target);
-				} else if (target.asClass().isInterface() && (from instanceof NativeObject || from instanceof NativeFunction || from instanceof ArrowFunction)) {
+				} else if (target.asClass().isInterface() && (from instanceof NativeObject || (from instanceof Callable && from instanceof ScriptableObject))) {
 					// Try to use function/object as implementation of Java interface.
 					return createInterfaceAdapter(target, (ScriptableObject) from);
 				} else {
