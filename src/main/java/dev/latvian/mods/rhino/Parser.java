@@ -2714,23 +2714,7 @@ public class Parser {
 
 			case Token.NUMBER: {
 				consumeToken();
-				String s = ts.getString();
-				if (this.inUseStrictDirective && ts.isNumberOldOctal()) {
-					reportError("msg.no.old.octal.strict");
-				}
-				if (ts.isNumberBinary()) {
-					s = "0b" + s;
-				}
-				if (ts.isNumberOldOctal()) {
-					s = "0" + s;
-				}
-				if (ts.isNumberOctal()) {
-					s = "0o" + s;
-				}
-				if (ts.isNumberHex()) {
-					s = "0x" + s;
-				}
-				return new NumberLiteral(ts.tokenBeg, s, ts.getNumber());
+				return createNumberLiteral();
 			}
 
 			case Token.STRING:
@@ -3216,7 +3200,7 @@ public class Parser {
 		switch (tt) {
 			case Token.NAME -> pname = createNameNode();
 			case Token.STRING -> pname = createStringLiteral();
-			case Token.NUMBER -> pname = new NumberLiteral(ts.tokenBeg, ts.getString(), ts.getNumber());
+			case Token.NUMBER -> pname = createNumberLiteral();
 			default -> {
 				if (TokenStream.isKeyword(ts.getString(), inUseStrictDirective)) {
 					// convert keyword to property name, e.g. ({if: 1})
@@ -3353,6 +3337,23 @@ public class Parser {
 		chars.setValue(ts.getString());
 		chars.setRawValue(ts.getRawString());
 		return chars;
+	}
+
+	private NumberLiteral createNumberLiteral() {
+		String s = ts.getString();
+		if (this.inUseStrictDirective && ts.isNumberOldOctal()) {
+			reportError("msg.no.old.octal.strict");
+		}
+		if (ts.isNumberBinary()) {
+			s = "0b" + s;
+		} else if (ts.isNumberOldOctal()) {
+			s = "0" + s;
+		} else if (ts.isNumberOctal()) {
+			s = "0o" + s;
+		} else if (ts.isNumberHex()) {
+			s = "0x" + s;
+		}
+		return new NumberLiteral(ts.tokenBeg, s, ts.getNumber());
 	}
 
 	protected void checkActivationName(String name, int token) {
