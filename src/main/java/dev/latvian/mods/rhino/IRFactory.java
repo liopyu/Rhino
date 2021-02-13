@@ -54,6 +54,7 @@ import dev.latvian.mods.rhino.ast.TemplateLiteral;
 import dev.latvian.mods.rhino.ast.ThrowStatement;
 import dev.latvian.mods.rhino.ast.TryStatement;
 import dev.latvian.mods.rhino.ast.UnaryExpression;
+import dev.latvian.mods.rhino.ast.UpdateExpression;
 import dev.latvian.mods.rhino.ast.VariableDeclaration;
 import dev.latvian.mods.rhino.ast.VariableInitializer;
 import dev.latvian.mods.rhino.ast.WhileLoop;
@@ -607,6 +608,8 @@ public final class IRFactory extends Parser {
 					yield transformAssignment(n);
 				} else if (node instanceof UnaryExpression n) {
 					yield transformUnary(n);
+				} else if (node instanceof UpdateExpression n) {
+					yield transformUpdate(n);
 				} else if (node instanceof InfixExpression n) {
 					yield transformInfix(n);
 				} else if (node instanceof VariableDeclaration n) {
@@ -1288,10 +1291,13 @@ public final class IRFactory extends Parser {
 	private Node transformUnary(UnaryExpression node) {
 		int type = node.getType();
 		Node child = transform(node.getOperand());
-		if (type == Token.INC || type == Token.DEC) {
-			return createIncDec(type, node.isPostfix(), child);
-		}
 		return createUnary(type, child);
+	}
+
+	private Node transformUpdate(UpdateExpression node) {
+		int type = node.getType();
+		Node child = transform(node.getOperand());
+		return createIncDec(type, node.isPostfix(), child);
 	}
 
 	private Node transformVariables(VariableDeclaration node) {

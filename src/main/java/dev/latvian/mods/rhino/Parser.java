@@ -61,6 +61,7 @@ import dev.latvian.mods.rhino.ast.TemplateLiteral;
 import dev.latvian.mods.rhino.ast.ThrowStatement;
 import dev.latvian.mods.rhino.ast.TryStatement;
 import dev.latvian.mods.rhino.ast.UnaryExpression;
+import dev.latvian.mods.rhino.ast.UpdateExpression;
 import dev.latvian.mods.rhino.ast.VariableDeclaration;
 import dev.latvian.mods.rhino.ast.VariableInitializer;
 import dev.latvian.mods.rhino.ast.WhileLoop;
@@ -2440,7 +2441,7 @@ public class Parser {
 			}
 			case Token.INC, Token.DEC -> {
 				consumeToken();
-				UnaryExpression expr = new UnaryExpression(tt, ts.tokenBeg, memberExpr(true));
+				UpdateExpression expr = new UpdateExpression(tt, ts.tokenBeg, memberExpr(true));
 				expr.setLineno(line);
 				checkBadIncDec(expr);
 				return expr;
@@ -2457,7 +2458,7 @@ public class Parser {
 					return pn;
 				}
 				consumeToken();
-				UnaryExpression uexpr = new UnaryExpression(tt, ts.tokenBeg, pn, true);
+				UpdateExpression uexpr = new UpdateExpression(tt, ts.tokenBeg, pn, true);
 				uexpr.setLineno(line);
 				checkBadIncDec(uexpr);
 				return uexpr;
@@ -3389,7 +3390,7 @@ public class Parser {
 		}
 	}
 
-	private void checkBadIncDec(UnaryExpression expr) {
+	private void checkBadIncDec(UpdateExpression expr) {
 		AstNode op = removeParens(expr.getOperand());
 		int tt = op.getType();
 		if (!(tt == Token.NAME || tt == Token.GETPROP || tt == Token.GETELEM || tt == Token.GET_REF || tt == Token.CALL)) {
