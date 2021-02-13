@@ -281,7 +281,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 			}
 		}
 
-		final long length = getLengthProperty(cx, items, false);
+		final long length = getLengthProperty(cx, items);
 		final Scriptable result = callConstructorOrCreateArray(cx, scope, thisObj, length, true);
 		for (long k = 0; k < length; k++) {
 			Object temp = getElem(cx, items, k);
@@ -320,7 +320,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	 * getLengthProperty returns 0 if obj does not have the length property
 	 * or its value is not convertible to a number.
 	 */
-	static long getLengthProperty(Context cx, Scriptable obj, boolean throwIfTooLarge) {
+	static long getLengthProperty(Context cx, Scriptable obj) {
 		// These will both give numeric lengths within Uint32 range.
 		if (obj instanceof NativeString) {
 			return ((NativeString) obj).getLength();
@@ -336,17 +336,15 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 		}
 
 		double doubleLen = ScriptRuntime.toNumber(cx, len);
+
+		// ToLength
 		if (doubleLen > NativeNumber.MAX_SAFE_INTEGER) {
-			if (throwIfTooLarge) {
-				String msg = ScriptRuntime.getMessage0("msg.arraylength.bad");
-				throw ScriptRuntime.rangeError(cx, msg);
-			}
-			return (int) NativeNumber.MAX_SAFE_INTEGER;
+			return (long) NativeNumber.MAX_SAFE_INTEGER;
 		}
 		if (doubleLen < 0) {
 			return 0;
 		}
-		return ScriptRuntime.toUint32(cx, len);
+		return (long) doubleLen;
 	}
 
 	private static Object setLengthProperty(Context cx, Scriptable target, long length) {
@@ -395,7 +393,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	private static String toStringHelper(Context cx, Scriptable scope, Scriptable thisObj, boolean toLocale) {
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
 
-		int length = (int) getLengthProperty(cx, o, false);
+		int length = (int) getLengthProperty(cx, o);
 
 		if (length == 0) {
 			return "[]";
@@ -425,7 +423,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	private static String toSource(Context cx, Scriptable scope, Scriptable thisObj) {
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
 
-		int length = (int) getLengthProperty(cx, o, false);
+		int length = (int) getLengthProperty(cx, o);
 
 		if (length == 0) {
 			return "[]";
@@ -456,7 +454,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	private static String js_join(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
 
-		long llength = getLengthProperty(cx, o, false);
+		long llength = getLengthProperty(cx, o);
 		int length = (int) llength;
 		if (llength != length) {
 			throw Context.reportRuntimeError1("msg.arraylength.too.big", String.valueOf(llength), cx);
@@ -524,7 +522,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 				return o;
 			}
 		}
-		long len = getLengthProperty(cx, o, false);
+		long len = getLengthProperty(cx, o);
 
 		long half = len / 2;
 		for (long i = 0; i < half; i++) {
@@ -548,7 +546,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	}
 
 	private static Scriptable sort(final Context cx, final Scriptable o, final Comparator<Object> comparator) {
-		long llength = getLengthProperty(cx, o, false);
+		long llength = getLengthProperty(cx, o);
 		final int length = (int) llength;
 		if (llength != length) {
 			throw Context.reportRuntimeError1("msg.arraylength.too.big", String.valueOf(llength), cx);
@@ -582,7 +580,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 				return ScriptRuntime.wrapNumber(na.length);
 			}
 		}
-		long length = getLengthProperty(cx, o, false);
+		long length = getLengthProperty(cx, o);
 		for (int i = 0; i < args.length; i++) {
 			setElem(cx, o, length + i, args[i]);
 		}
@@ -605,7 +603,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 				return result;
 			}
 		}
-		long length = getLengthProperty(cx, o, false);
+		long length = getLengthProperty(cx, o);
 		if (length > 0) {
 			length--;
 
@@ -639,7 +637,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 			}
 		}
 		Object result;
-		long length = getLengthProperty(cx, o, false);
+		long length = getLengthProperty(cx, o);
 		if (length > 0) {
 			long i = 0;
 			length--;
@@ -679,7 +677,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 				return ScriptRuntime.wrapNumber(na.length);
 			}
 		}
-		long length = getLengthProperty(cx, o, false);
+		long length = getLengthProperty(cx, o);
 		int argc = args.length;
 
 		if (args.length > 0) {
@@ -717,7 +715,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 		if (argc == 0) {
 			return cx.newArray(scope, 0);
 		}
-		long length = getLengthProperty(cx, o, false);
+		long length = getLengthProperty(cx, o);
 
 		/* Convert the first argument into a starting index. */
 		long begin = ArrayLikeAbstractOperations.toSliceIndex(ScriptRuntime.toInteger(cx, args[0]), length);
@@ -827,7 +825,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	// Concat elements of "arg" into the destination, with optimizations for native,
 	// dense arrays.
 	private static long concatSpreadArg(Context cx, Scriptable result, Scriptable arg, long offset) {
-		long srclen = getLengthProperty(cx, arg, false);
+		long srclen = getLengthProperty(cx, arg);
 		long newlen = srclen + offset;
 
 		if (newlen > NativeNumber.MAX_SAFE_INTEGER) {
@@ -891,7 +889,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
 
 		Scriptable result = cx.newArray(scope, 0);
-		long len = getLengthProperty(cx, o, false);
+		long len = getLengthProperty(cx, o);
 
 		long begin, end;
 		if (args.length == 0) {
@@ -921,7 +919,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 		Object compareTo = args.length > 0 ? args[0] : Undefined.INSTANCE;
 
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
-		long length = getLengthProperty(cx, o, false);
+		long length = getLengthProperty(cx, o);
 		/*
 		 * From http://developer.mozilla.org/en/docs/Core_JavaScript_1.5_Reference:Objects:Array:indexOf
 		 * The index at which to begin the search. Defaults to 0, i.e. the
@@ -976,7 +974,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 		Object compareTo = args.length > 0 ? args[0] : Undefined.INSTANCE;
 
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
-		long length = getLengthProperty(cx, o, false);
+		long length = getLengthProperty(cx, o);
 		/*
 		 * From http://developer.mozilla.org/en/docs/Core_JavaScript_1.5_Reference:Objects:Array:lastIndexOf
 		 * The index at which to start searching backwards. Defaults to the
@@ -1086,7 +1084,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	private static Object js_fill(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
-		long len = getLengthProperty(cx, o, false);
+		long len = getLengthProperty(cx, o);
 
 		long relativeStart = 0;
 		if (args.length >= 2) {
@@ -1120,7 +1118,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	private static Object js_copyWithin(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
-		long len = getLengthProperty(cx, o, false);
+		long len = getLengthProperty(cx, o);
 
 		Object targetArg = (args.length >= 1) ? args[0] : Undefined.INSTANCE;
 		long relativeTarget = (long) ScriptRuntime.toInteger(cx, targetArg);
@@ -1190,7 +1188,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	private static Object js_at(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
-		long len = getLengthProperty(cx, o, false);
+		long len = getLengthProperty(cx, o);
 
 		long relativeIndex = 0;
 		if (args.length >= 1) {
@@ -1216,7 +1214,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	}
 
 	private static Scriptable flat(Context cx, Scriptable scope, Scriptable source, double depth) {
-		long length = getLengthProperty(cx, source, false);
+		long length = getLengthProperty(cx, source);
 
 		Scriptable result = cx.newArray(scope, 0);
 		long j = 0;
@@ -1227,7 +1225,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 			}
 			if (depth >= 1 && js_isArray(elem)) {
 				Scriptable arr = flat(cx, scope, (Scriptable) elem, depth - 1);
-				long arrLength = getLengthProperty(cx, arr, false);
+				long arrLength = getLengthProperty(cx, arr);
 				for (long k = 0; k < arrLength; k++) {
 					Object temp = ArrayLikeAbstractOperations.getRawElem(arr, k, cx);
 					ArrayLikeAbstractOperations.defineElem(cx, result, j++, temp);
@@ -1255,7 +1253,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 			thisArg = ScriptRuntime.toObject(cx, scope, args[1]);
 		}
 
-		long length = getLengthProperty(cx, o, false);
+		long length = getLengthProperty(cx, o);
 
 		Scriptable result = cx.newArray(scope, 0);
 		long j = 0;
@@ -1268,7 +1266,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 			Object mapCall = f.call(cx, parent, thisArg, innerArgs);
 			if (js_isArray(mapCall)) {
 				Scriptable arr = (Scriptable) mapCall;
-				long arrLength = getLengthProperty(cx, arr, false);
+				long arrLength = getLengthProperty(cx, arr);
 				for (long k = 0; k < arrLength; k++) {
 					Object temp = ArrayLikeAbstractOperations.getRawElem(arr, k, cx);
 					ArrayLikeAbstractOperations.defineElem(cx, result, j++, temp);
@@ -1289,7 +1287,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 		Comparator<Object> comparator = ArrayLikeAbstractOperations.getSortComparator(cx, scope, args);
 
 		Scriptable source = ScriptRuntime.toObject(cx, scope, thisObj);
-		long len = getLengthProperty(cx, source, false);
+		long len = getLengthProperty(cx, source);
 
 		if (len > Integer.MAX_VALUE) {
 			String msg = ScriptRuntime.getMessage0("msg.arraylength.bad");
@@ -1308,7 +1306,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	private static Object js_toReversed(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 		Scriptable source = ScriptRuntime.toObject(cx, scope, thisObj);
-		long len = getLengthProperty(cx, source, false);
+		long len = getLengthProperty(cx, source);
 
 		if (len > Integer.MAX_VALUE) {
 			String msg = ScriptRuntime.getMessage0("msg.arraylength.bad");
@@ -1327,7 +1325,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	private static Object js_toSpliced(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 		Scriptable source = ScriptRuntime.toObject(cx, scope, thisObj);
-		long len = getLengthProperty(cx, source, false);
+		long len = getLengthProperty(cx, source);
 
 		long actualStart = 0;
 		if (args.length > 0) {
@@ -1384,7 +1382,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	private static Object js_with(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 		Scriptable source = ScriptRuntime.toObject(cx, scope, thisObj);
 
-		long len = getLengthProperty(cx, source, false);
+		long len = getLengthProperty(cx, source);
 		long relativeIndex = args.length > 0 ? (int) ScriptRuntime.toInteger(cx, args[0]) : 0;
 		long actualIndex = relativeIndex >= 0 ? relativeIndex : len + relativeIndex;
 

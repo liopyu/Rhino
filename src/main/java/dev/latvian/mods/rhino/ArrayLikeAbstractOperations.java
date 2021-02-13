@@ -36,7 +36,7 @@ public class ArrayLikeAbstractOperations {
 			ScriptRuntimeES6.requireObjectCoercible(cx, o, fun);
 		}
 
-		long length = NativeArray.getLengthProperty(cx, o, operation == IterativeOperation.MAP);
+		long length = NativeArray.getLengthProperty(cx, o);
 		Object callbackArg = args.length > 0 ? args[0] : Undefined.INSTANCE;
 
 		Function f = getCallbackArg(cx, callbackArg);
@@ -171,7 +171,7 @@ public class ArrayLikeAbstractOperations {
 	public static Object reduceMethod(Context cx, ReduceOperation operation, Scriptable scope, Scriptable thisObj, Object[] args) {
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
 
-		long length = NativeArray.getLengthProperty(cx, o, false);
+		long length = NativeArray.getLengthProperty(cx, o);
 		Object callbackArg = args.length > 0 ? args[0] : Undefined.INSTANCE;
 		if (callbackArg == null || !(callbackArg instanceof Function f)) {
 			throw ScriptRuntime.notFunctionError(cx, callbackArg);
