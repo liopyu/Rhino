@@ -623,15 +623,15 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 			case ConstructorId_assign: {
 				Scriptable targetObj;
 				if (args.length > 0) {
-					targetObj = ScriptRuntime.toObject(cx, thisObj, args[0]);
+					targetObj = ScriptRuntime.toObject(cx, scope, args[0]);
 				} else {
-					targetObj = ScriptRuntime.toObject(cx, thisObj, Undefined.INSTANCE);
+					targetObj = ScriptRuntime.toObject(cx, scope, Undefined.INSTANCE);
 				}
 				for (int i = 1; i < args.length; i++) {
 					if ((args[i] == null) || Undefined.isUndefined(args[i])) {
 						continue;
 					}
-					Scriptable sourceObj = ScriptRuntime.toObject(cx, thisObj, args[i]);
+					Scriptable sourceObj = ScriptRuntime.toObject(cx, scope, args[i]);
 					Object[] ids;
 					if (sourceObj instanceof ScriptableObject so) {
 						ids = so.getIds(cx, false, true);
