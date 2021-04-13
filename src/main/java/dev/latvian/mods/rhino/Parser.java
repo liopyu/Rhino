@@ -3231,16 +3231,12 @@ public class Parser {
 	}
 
 	private ObjectProperty plainProperty(AstNode property, int ptt) throws IOException {
-		// Support, e.g., |var {x, y} = o| as destructuring shorthand
-		// for |var {x: x, y: y} = o|, as implemented in spidermonkey JS 1.8.
+		// Support shorthand object property names ({x, y}) and the destructuring equivalent (var {x, y} = o)
 		int tt = peekToken();
 		if ((tt == Token.COMMA || tt == Token.RC) && ptt == Token.NAME) {
-			if (!inDestructuringAssignment) {
-				reportError("msg.bad.object.init");
-			}
 			AstNode nn = new Name(property.getPosition(), property.getString());
 			ObjectProperty pn = new ObjectProperty();
-			pn.putProp(Node.DESTRUCTURING_SHORTHAND, Boolean.TRUE);
+			pn.putProp(Node.SHORTHAND_PROPERTY_NAME, Boolean.TRUE);
 			pn.setLeftAndRight(property, nn);
 			return pn;
 		}
