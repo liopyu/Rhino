@@ -388,7 +388,7 @@ public final class JavaAdapter implements IdFunctionCall {
 	}
 
 	private static void appendOverridableMethods(Class<?> c, ArrayList<Method> list, HashSet<String> skip) {
-		Method[] methods = c.getDeclaredMethods();
+		Method[] methods = c.isInterface() ? c.getMethods() : c.getDeclaredMethods();
 		for (Method method : methods) {
 			String methodKey = method.getName() + getMethodSignature(method, method.getParameterTypes());
 			if (skip.contains(methodKey)) {
