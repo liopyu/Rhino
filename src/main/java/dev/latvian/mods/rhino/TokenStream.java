@@ -28,6 +28,7 @@ class TokenStream {
 	private final static int EOF_CHAR = -1;
 
 	private final static char BYTE_ORDER_MARK = '\uFEFF';
+	private final static char NUMERIC_SEPARATOR = '_';
 
 	static boolean isKeyword(String s, boolean isStrict) {
 		return Token.EOF != stringToKeyword(s, isStrict);
@@ -410,13 +411,27 @@ class TokenStream {
 
 				boolean isEmpty = true;
 				if (base == 16) {
-					while (0 <= Kit.xDigitToInt(c, 0)) {
+					while (0 <= Kit.xDigitToInt(c, 0) || c == NUMERIC_SEPARATOR) {
+						if (c == NUMERIC_SEPARATOR) {
+							c = getChar();
+							if (c == EOF_CHAR || c == '\n' || 0 > Kit.xDigitToInt(c, 0)) {
+								parser.addError("msg.caught.nfe");
+								return Token.ERROR;
+							}
+						}
 						addToString(c);
 						c = getChar();
 						isEmpty = false;
 					}
 				} else {
-					while ('0' <= c && c <= '9') {
+					while ('0' <= c && c <= '9' || (!isOldOctal && c == NUMERIC_SEPARATOR)) {
+						if (c == NUMERIC_SEPARATOR) {
+							c = getChar();
+							if (c == EOF_CHAR || c == '\n' || !('0' <= c && c <= '9')) {
+								parser.addError("msg.caught.nfe");
+								return Token.ERROR;
+							}
+						}
 						if (base == 8 && c >= '8') {
 							if (isOldOctal) {
 								/*
@@ -450,10 +465,19 @@ class TokenStream {
 				if (base == 10 && (c == '.' || c == 'e' || c == 'E')) {
 					isInteger = false;
 					if (c == '.') {
-						do {
+						addToString(c);
+						c = getChar();
+						while (isDigit(c) || c == NUMERIC_SEPARATOR) {
+							if (c == NUMERIC_SEPARATOR) {
+								c = getChar();
+								if (c == EOF_CHAR || c == '\n' || !isDigit(c)) {
+									parser.addError("msg.caught.nfe");
+									return Token.ERROR;
+								}
+							}
 							addToString(c);
 							c = getChar();
-						} while (isDigit(c));
+						}
 					}
 					if (c == 'e' || c == 'E') {
 						addToString(c);
@@ -466,10 +490,19 @@ class TokenStream {
 							parser.addError("msg.missing.exponent");
 							return Token.ERROR;
 						}
-						do {
+						addToString(c);
+						c = getChar();
+						while (isDigit(c) || c == NUMERIC_SEPARATOR) {
+							if (c == NUMERIC_SEPARATOR) {
+								c = getChar();
+								if (c == EOF_CHAR || c == '\n' || !isDigit(c)) {
+									parser.addError("msg.caught.nfe");
+									return Token.ERROR;
+								}
+							}
 							addToString(c);
 							c = getChar();
-						} while (isDigit(c));
+						}
 					}
 				}
 				ungetChar(c);
