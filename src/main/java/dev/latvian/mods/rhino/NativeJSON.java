@@ -187,6 +187,16 @@ public class NativeJSON extends IdScriptableObject {
 			}
 
 			builder.append('}');
+		} else if (v.getClass().isArray()) {
+			builder.append('[');
+			int length = java.lang.reflect.Array.getLength(v);
+			for (int i = 0; i < length; i++) {
+				if (i > 0) {
+					builder.append(',');
+				}
+				stringify0(cx, java.lang.reflect.Array.get(v, i), builder);
+			}
+			builder.append(']');
 		} else if (v instanceof Iterable<?> itr) {
 			builder.append('[');
 			boolean first = true;
