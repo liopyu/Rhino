@@ -69,11 +69,23 @@ public class NativeJavaList extends NativeJavaObject {
 
 	@Override
 	public void put(Context cx, int index, Scriptable start, Object value) {
-		if (isWithValidIndex(index)) {
+		if (index >= 0) {
+			ensureCapacity(index + 1);
 			list.set(index, cx.jsToJava(value, listType));
 			return;
 		}
 		super.put(cx, index, start, value);
+	}
+
+	private void ensureCapacity(int minCapacity) {
+		if (minCapacity > list.size()) {
+			if (list instanceof ArrayList) {
+				((ArrayList<?>) list).ensureCapacity(minCapacity);
+			}
+			while (minCapacity > list.size()) {
+				list.add(null);
+			}
+		}
 	}
 
 	@Override
