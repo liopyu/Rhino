@@ -1340,7 +1340,12 @@ public final class IRFactory extends Parser {
 			Block catchBody = cc.getBody();
 
 			Node catchCond;
-			if (varName instanceof Name) {
+			if (varName == null) {
+				// Optional catch binding: "catch { ... }" with nothing to bind.
+				// Still needs a name to give the caught exception a home on the stack.
+				varNameStr = currentScriptOrFn.getNextTempName();
+				catchCond = new EmptyExpression();
+			} else if (varName instanceof Name) {
 				varNameStr = ((Name) varName).getIdentifier();
 
 				AstNode ccc = cc.getCatchCondition();

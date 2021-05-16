@@ -1650,44 +1650,50 @@ public class Parser {
 					reportError("msg.catch.unreachable");
 				}
 				int catchPos = ts.tokenBeg, lp = -1, rp = -1, guardPos = -1;
-				if (mustMatchToken(Token.LP, "msg.no.paren.catch", true)) {
-					lp = ts.tokenBeg;
-				}
 
-				AstNode varName;
-				int tt = peekToken();
-				if (tt == Token.LB || tt == Token.LC) {
-					// Destructuring pattern
-					varName = destructuringPrimaryExpr();
-					markDestructuring(varName);
+				AstNode varName = null;
+				AstNode catchCond = null;
+				if (peekToken() == Token.LC) {
+					// Optional catch binding: "catch { ... }" with no "(varName)" at all.
+					sawDefaultCatch = true;
 				} else {
-					// Simple identifier
-					mustMatchToken(Token.NAME, "msg.bad.catchcond", true);
-
-					varName = createNameNode();
-					Comment jsdocNodeForName = getAndResetJsDoc();
-					if (jsdocNodeForName != null) {
-						varName.setJsDocNode(jsdocNodeForName);
+					if (mustMatchToken(Token.LP, "msg.no.paren.catch", true)) {
+						lp = ts.tokenBeg;
 					}
-					String varNameString = ((Name) varName).getIdentifier();
-					if (inUseStrictDirective) {
-						if ("eval".equals(varNameString) || "arguments".equals(varNameString)) {
-							reportError("msg.bad.id.strict", varNameString);
+
+					int tt = peekToken();
+					if (tt == Token.LB || tt == Token.LC) {
+						// Destructuring pattern
+						varName = destructuringPrimaryExpr();
+						markDestructuring(varName);
+					} else {
+						// Simple identifier
+						mustMatchToken(Token.NAME, "msg.bad.catchcond", true);
+
+						varName = createNameNode();
+						Comment jsdocNodeForName = getAndResetJsDoc();
+						if (jsdocNodeForName != null) {
+							varName.setJsDocNode(jsdocNodeForName);
+						}
+						String varNameString = ((Name) varName).getIdentifier();
+						if (inUseStrictDirective) {
+							if ("eval".equals(varNameString) || "arguments".equals(varNameString)) {
+								reportError("msg.bad.id.strict", varNameString);
+							}
 						}
 					}
-				}
 
-				AstNode catchCond = null;
-				// Non-standard extension: "catch (e if cond)" — only for Name varName
-				if (varName instanceof Name && matchToken(Token.IF, true)) {
-					guardPos = ts.tokenBeg;
-					catchCond = expr();
-				} else {
-					sawDefaultCatch = true;
-				}
+					// Non-standard extension: "catch (e if cond)" — only for Name varName
+					if (varName instanceof Name && matchToken(Token.IF, true)) {
+						guardPos = ts.tokenBeg;
+						catchCond = expr();
+					} else {
+						sawDefaultCatch = true;
+					}
 
-				if (mustMatchToken(Token.RP, "msg.bad.catchcond", true)) {
-					rp = ts.tokenBeg;
+					if (mustMatchToken(Token.RP, "msg.bad.catchcond", true)) {
+						rp = ts.tokenBeg;
+					}
 				}
 				mustMatchToken(Token.LC, "msg.no.brace.catchblock", true);
 

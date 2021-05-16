@@ -3,12 +3,13 @@ package dev.latvian.mods.rhino.test;
 import org.junit.jupiter.api.Test;
 
 /**
- * Coverage for catch-clause destructuring patterns (Mozilla/rhino@9e3d6c01f).
- * Supports both {@code catch ({message})} and {@code catch ([a, b])}.
+ * Coverage for catch-clause tests, namely destructuring
+ * (`catch ({message})` and `catch ([a,b,c])`)
+ * as well as catch without binding.
  */
 @SuppressWarnings("unused")
-public class CatchDestructuringTests {
-	public static final RhinoTest TEST = new RhinoTest("catchDestructuring");
+public class CatchClauseTests {
+	public static final RhinoTest TEST = new RhinoTest("catchClauses");
 
 	@Test
 	public void objectDestructure() {
@@ -74,5 +75,15 @@ public class CatchDestructuringTests {
 			""", """
 			plain
 			""");
+	}
+
+	@Test
+	public void noBinding() {
+		TEST.test("noBinding", "try { throw 'x'; } catch { console.info('caught') }", "caught");
+	}
+
+	@Test
+	public void noBindingSafe() {
+		TEST.test("noBindingSafe", "try { console.info('try') } catch { console.info('oops') }", "try");
 	}
 }

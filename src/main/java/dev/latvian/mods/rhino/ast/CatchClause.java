@@ -51,13 +51,14 @@ public class CatchClause extends AstNode {
 	/**
 	 * Sets catch variable node, and sets its parent to this node.
 	 *
-	 * @param varName catch variable
-	 * @throws IllegalArgumentException if varName is {@code null}
+	 * @param varName catch variable. Can be {@code null} for an optional catch binding
+	 *                ("catch { ... }" with no variable bound at all).
 	 */
 	public void setVarName(AstNode varName) {
-		assertNotNull(varName);
 		this.varName = varName;
-		varName.setParent(this);
+		if (varName != null) {
+			varName.setParent(this);
+		}
 	}
 
 	/**
