@@ -11,6 +11,7 @@ import dev.latvian.mods.rhino.ArrayLikeAbstractOperations.ReduceOperation;
 import dev.latvian.mods.rhino.regexp.NativeRegExp;
 import dev.latvian.mods.rhino.util.DataObject;
 
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -2310,11 +2311,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	@Override
 	public ListIterator listIterator(final int start) {
-		long longLen = length;
-		if (longLen > Integer.MAX_VALUE) {
-			throw new IllegalStateException();
-		}
-		final int len = (int) longLen;
+        final int len = size();
 
 		if (start < 0 || start > len) {
 			throw new IndexOutOfBoundsException("Index: " + start);
@@ -2429,7 +2426,23 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	@Override
 	public List subList(int fromIndex, int toIndex) {
-		throw new UnsupportedOperationException();
+        if (fromIndex < 0) throw new IndexOutOfBoundsException("fromIndex = " + fromIndex);
+        if (toIndex > size()) throw new IndexOutOfBoundsException("toIndex = " + toIndex);
+        if (fromIndex > toIndex)
+            throw new IllegalArgumentException(
+                    "fromIndex(" + fromIndex + ") > toIndex(" + toIndex + ")");
+        return new AbstractList() {
+
+            @Override
+            public Object get(int index) {
+                return NativeArray.this.get(index + fromIndex);
+            }
+
+            @Override
+            public int size() {
+                return toIndex - fromIndex;
+            }
+        };
 	}
 
 	@Override
