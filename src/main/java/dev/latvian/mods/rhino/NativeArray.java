@@ -2198,11 +2198,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	@Override
 	public Object[] toArray(Object[] a) {
-		long longLen = length;
-		if (longLen > Integer.MAX_VALUE) {
-			throw new IllegalStateException();
-		}
-		int len = (int) longLen;
+		int len = size();
 		Object[] array = a.length >= len ? a : (Object[]) java.lang.reflect.Array.newInstance(a.getClass().getComponentType(), len);
 		for (int i = 0; i < len; i++) {
 			array[i] = get(i);
@@ -2224,7 +2220,8 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	public int size() {
 		long longLen = length;
 		if (longLen > Integer.MAX_VALUE) {
-			throw new IllegalStateException();
+            throw new IllegalStateException(
+                    "list.length (" + length + ") exceeds Integer.MAX_VALUE");
 		}
 		return (int) longLen;
 	}
@@ -2255,11 +2252,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	@Override
 	public int indexOf(Object o) {
-		long longLen = length;
-		if (longLen > Integer.MAX_VALUE) {
-			throw new IllegalStateException();
-		}
-		int len = (int) longLen;
+        int len = size();
 		if (o == null) {
 			for (int i = 0; i < len; i++) {
 				if (get(i) == null) {
@@ -2278,11 +2271,7 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	@Override
 	public int lastIndexOf(Object o) {
-		long longLen = length;
-		if (longLen > Integer.MAX_VALUE) {
-			throw new IllegalStateException();
-		}
-		int len = (int) longLen;
+        int len = size();
 		if (o == null) {
 			for (int i = len - 1; i >= 0; i--) {
 				if (get(i) == null) {
