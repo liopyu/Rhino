@@ -177,4 +177,28 @@ class AbstractEcmaObjectOperations {
 
 		return groups;
 	}
+
+	/**
+	 * Implement the ECMAScript abstract operation "SpeciesConstructor" defined in section 7.2.33 of
+	 * ECMA262.
+	 *
+	 * @see <a href="https://tc39.es/ecma262/#sec-speciesconstructor"></a>
+	 */
+	public static Constructable speciesConstructor(Context cx, Scriptable s, Constructable defaultConstructor) {
+		Object constructor = ScriptableObject.getProperty(s, "constructor", cx);
+		if (constructor == Scriptable.NOT_FOUND || Undefined.isUndefined(constructor)) {
+			return defaultConstructor;
+		}
+		if (!ScriptRuntime.isObject(constructor)) {
+			throw ScriptRuntime.typeError1(cx, "msg.arg.not.object", ScriptRuntime.typeof(cx, constructor).toString());
+		}
+		Object species = ScriptableObject.getProperty((Scriptable) constructor, SymbolKey.SPECIES, cx);
+		if (species == Scriptable.NOT_FOUND || species == null || Undefined.isUndefined(species)) {
+			return defaultConstructor;
+		}
+		if (!(species instanceof Constructable)) {
+			throw ScriptRuntime.typeError1(cx, "msg.not.ctor", ScriptRuntime.typeof(cx, species).toString());
+		}
+		return (Constructable) species;
+	}
 }

@@ -226,6 +226,7 @@ public class ScriptRuntime {
 		NativeCollectionIterator.init(scope, NativeSet.ITERATOR_TAG, sealed, cx);
 		NativeCollectionIterator.init(scope, NativeMap.ITERATOR_TAG, sealed, cx);
 		NativeMap.init(cx, scope, sealed);
+		NativePromise.init(cx, scope, sealed);
 		NativeSet.init(cx, scope, sealed);
 		NativeWeakMap.init(scope, sealed, cx);
 		NativeWeakSet.init(scope, sealed, cx);

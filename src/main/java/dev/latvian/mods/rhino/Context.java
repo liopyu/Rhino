@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -229,6 +230,7 @@ public class Context {
 
 	private Map<Object, Object> threadLocalMap;
 	private ClassLoader applicationClassLoader;
+	private final ArrayDeque<Runnable> microtasks = new ArrayDeque<>();
 
 	// custom data
 
@@ -860,6 +862,32 @@ public class Context {
 			throw new IllegalArgumentException("Loader can not resolve Rhino classes");
 		}
 		applicationClassLoader = loader;
+	}
+
+	/**
+	 * Add a task that will be executed at the end of the current operation. The various "evaluate"
+	 * functions will all call this before exiting to ensure that all microtasks run to completion.
+	 * Otherwise, callers should call "processMicrotasks" to run them all. This feature is primarily
+	 * used to implement Promises. The microtask queue is not thread-safe.
+	 */
+	public void enqueueMicrotask(Runnable task) {
+		microtasks.add(task);
+	}
+
+	/**
+	 * Run all the microtasks for the current context to completion. This is called by the various
+	 * "evaluate" functions. Frameworks that call Function objects directly should call this
+	 * function to ensure that everything completes if they want all Promises to eventually resolve.
+	 * This function is idempotent, but the microtask queue is not thread-safe.
+	 */
+	public void processMicrotasks() {
+		Runnable head;
+		do {
+			head = microtasks.poll();
+			if (head != null) {
+				head.run();
+			}
+		} while (head != null);
 	}
 
 	private Object compileImpl(Scriptable scope, String sourceString, String sourceName, int lineno, Object securityDomain, boolean returnFunction, Evaluator compiler, ErrorReporter compilationErrorReporter) throws IOException {

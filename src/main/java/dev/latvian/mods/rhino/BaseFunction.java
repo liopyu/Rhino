@@ -349,6 +349,11 @@ public class BaseFunction extends IdScriptableObject implements Function {
 	public void setStandardPropertyAttributes(int attributes) {
 		namePropertyAttributes = attributes;
 		lengthPropertyAttributes = attributes;
+		arityPropertyAttributes = attributes;
+	}
+
+	public void setPrototypePropertyAttributes(int attributes) {
+		prototypePropertyAttributes = attributes;
 	}
 
 	public void setImmunePrototypeProperty(Object value) {
