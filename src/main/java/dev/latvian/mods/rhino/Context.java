@@ -231,6 +231,7 @@ public class Context {
 	private Map<Object, Object> threadLocalMap;
 	private ClassLoader applicationClassLoader;
 	private final ArrayDeque<Runnable> microtasks = new ArrayDeque<>();
+	private final UnhandledRejectionTracker unhandledPromises = new UnhandledRejectionTracker();
 
 	// custom data
 
@@ -888,6 +889,26 @@ public class Context {
 				head.run();
 			}
 		} while (head != null);
+	}
+
+	/**
+	 * Control whether to track unhandled promise rejections. If "track" is set to true, then the
+	 * tracker returned by "getUnhandledPromiseTracker" must be periodically used to process the
+	 * queue of unhandled promise rejections, or a memory leak may result.
+	 *
+	 * @param track if true, then track unhandled promise rejections
+	 */
+	public void setTrackUnhandledPromiseRejections(boolean track) {
+		unhandledPromises.enable(track);
+	}
+
+	/**
+	 * Return the object used to track unhandled promise rejections.
+	 *
+	 * @return the tracker object
+	 */
+	public UnhandledRejectionTracker getUnhandledPromiseTracker() {
+		return unhandledPromises;
 	}
 
 	private Object compileImpl(Scriptable scope, String sourceString, String sourceName, int lineno, Object securityDomain, boolean returnFunction, Evaluator compiler, ErrorReporter compilationErrorReporter) throws IOException {

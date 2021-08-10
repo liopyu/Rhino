@@ -23,6 +23,7 @@ public class NativePromise extends ScriptableObject {
 
 	private State state = State.PENDING;
 	private Object result = null;
+    private boolean handled = false;
 
 	private ArrayList<Reaction> fulfillReactions = new ArrayList<>();
 	private ArrayList<Reaction> rejectReactions = new ArrayList<>();
@@ -79,6 +80,10 @@ public class NativePromise extends ScriptableObject {
 	public String getClassName() {
 		return "Promise";
 	}
+
+    Object getResult() {
+        return result;
+    }
 
 	// Promise.resolve
 	private static Object resolve(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
@@ -231,8 +236,12 @@ public class NativePromise extends ScriptableObject {
 			cx.enqueueMicrotask(() -> fulfillReaction.invoke(cx, scope, result));
 		} else {
 			assert (state == State.REJECTED);
+            if (!handled) {
+                cx.getUnhandledPromiseTracker().promiseHandled(this);
+            }
 			cx.enqueueMicrotask(() -> rejectReaction.invoke(cx, scope, result));
 		}
+        handled = true;
 		return capability.promise;
 	}
 
@@ -316,6 +325,7 @@ public class NativePromise extends ScriptableObject {
 			fulfillReactions = new ArrayList<>();
 		}
 		state = State.REJECTED;
+        cx.getUnhandledPromiseTracker().promiseRejected(this);
 		for (Reaction r : reactions) {
 			cx.enqueueMicrotask(() -> r.invoke(cx, scope, reason));
 		}
