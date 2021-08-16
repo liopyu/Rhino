@@ -66,10 +66,15 @@ public class NativePromise extends ScriptableObject {
 		NativePromise promise = new NativePromise();
 		ResolvingFunctions resolving = new ResolvingFunctions(cx, scope, promise);
 
+		Scriptable thisObj = Undefined.SCRIPTABLE_INSTANCE;
+		if (!cx.isStrictMode() && cx.hasTopCallScope()) {
+			thisObj = cx.getTopCallScope();
+		}
+
 		try {
-			executor.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{resolving.resolve, resolving.reject});
+			executor.call(cx, scope, thisObj, new Object[]{resolving.resolve, resolving.reject});
 		} catch (RhinoException re) {
-			resolving.reject.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{getErrorObject(cx, scope, re)});
+			resolving.reject.call(cx, scope, thisObj, new Object[]{getErrorObject(cx, scope, re)});
 		}
 
 		return promise;
