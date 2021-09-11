@@ -183,6 +183,16 @@ public class Hashtable implements Iterable<Hashtable.Entry> {
 		return v.value;
 	}
 
+	/**
+	 * Returns the entry for {@code key}, or {@code null} if absent.
+	 * Distinguishes "no such key" from "key present with a null value" — important
+	 * for Map.prototype.get() which must yield {@code undefined} only in the former case.
+	 */
+	public Entry getEntry(Context cx, Object key) {
+		final Entry e = new Entry(cx, key, null);
+		return map.get(e);
+	}
+
 	public boolean has(Context cx, Object key) {
 		final Entry e = new Entry(cx, key, null);
 		return map.containsKey(e);
@@ -229,6 +239,16 @@ public class Hashtable implements Iterable<Hashtable.Entry> {
 		}
 		// Still clear the node in case it is in the chain of some iterator
 		return v.clear();
+	}
+
+	/**
+	 * Removes the entry for {@code key} and returns {@code true} if it was present.
+	 * Distinguishes "no such key" from "key present with a null value" — important
+	 * for Map/Set.prototype.delete() which must report whether something was actually
+	 * removed regardless of the stored value.
+	 */
+	public boolean deleteEntry(Context cx, Object key) {
+		return getEntry(cx, key) != null && delete(cx, key) != null;
 	}
 
 	public void clear(Context cx) {

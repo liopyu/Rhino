@@ -149,8 +149,7 @@ public class NativeSet extends IdScriptableObject {
 	}
 
 	private Object js_delete(Context cx, Object arg) {
-		final Object ov = entries.delete(cx, arg);
-		return ov != null;
+		return entries.deleteEntry(cx, arg);
 	}
 
 	private Object js_has(Context cx, Object arg) {

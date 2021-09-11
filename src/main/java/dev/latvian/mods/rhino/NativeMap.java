@@ -12,7 +12,6 @@ import java.util.Map;
 public class NativeMap extends IdScriptableObject {
 	static final String ITERATOR_TAG = "Map Iterator";
 	private static final Object MAP_TAG = "Map";
-	private static final Object NULL_VALUE = new Object();
 	// Note that "SymbolId_iterator" is not present here. That's because the spec
 	// requires that it be the same value as the "entries" prototype property.
 	private static final int ConstructorId_groupBy = -1;
@@ -175,32 +174,25 @@ public class NativeMap extends IdScriptableObject {
 	}
 
 	private Object js_set(Context cx, Object k, Object v) {
-		// Map.get() does not distinguish between "not found" and a null value. So,
-		// replace true null here with a marker so that we can re-convert in "get".
-		final Object value = (v == null ? NULL_VALUE : v);
 		// Special handling of "negative zero" from the spec.
 		Object key = k;
 		if ((key instanceof Number) && ((Number) key).doubleValue() == ScriptRuntime.negativeZero) {
 			key = ScriptRuntime.zeroObj;
 		}
-		entries.put(cx, key, value);
+		entries.put(cx, key, v);
 		return this;
 	}
 
 	private Object js_delete(Context cx, Object arg) {
-		final Object e = entries.delete(cx, arg);
-		return e != null;
+		return entries.deleteEntry(cx, arg);
 	}
 
 	private Object js_get(Context cx, Object arg) {
-		final Object val = entries.get(cx, arg);
-		if (val == null) {
+		final Hashtable.Entry entry = entries.getEntry(cx, arg);
+		if (entry == null) {
 			return Undefined.INSTANCE;
 		}
-		if (val == NULL_VALUE) {
-			return null;
-		}
-		return val;
+		return entry.value;
 	}
 
 	private Object js_has(Context cx, Object arg) {
@@ -238,13 +230,7 @@ public class NativeMap extends IdScriptableObject {
 				thisObj = Undefined.SCRIPTABLE_INSTANCE;
 			}
 
-			Object val = entry.value;
-
-			if (val == NULL_VALUE) {
-				val = null;
-			}
-
-			f.call(cx, scope, thisObj, new Object[]{val, entry.key, this});
+			f.call(cx, scope, thisObj, new Object[]{entry.value, entry.key, this});
 		}
 		return Undefined.INSTANCE;
 	}
