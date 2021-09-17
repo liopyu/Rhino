@@ -82,6 +82,29 @@ public class NativeJavaList extends NativeJavaObject {
 		super.put(cx, index, start, value);
 	}
 
+	@Override
+	public void put(Context cx, String name, Scriptable start, Object value) {
+		if (list != null && "length".equals(name)) {
+			setLength(cx, value);
+			return;
+		}
+		super.put(cx, name, start, value);
+	}
+
+	private void setLength(Context cx, Object val) {
+		double d = ScriptRuntime.toNumber(cx, val);
+		long longVal = ScriptRuntime.toUint32(d);
+		if (longVal != d || longVal > Integer.MAX_VALUE) {
+			String msg = ScriptRuntime.getMessage0("msg.arraylength.bad");
+			throw ScriptRuntime.rangeError(cx, msg);
+		}
+		if (longVal < list.size()) {
+			list.subList((int) longVal, list.size()).clear();
+		} else {
+			ensureCapacity((int) longVal);
+		}
+	}
+
 	private void ensureCapacity(int minCapacity) {
 		if (minCapacity > list.size()) {
 			if (list instanceof ArrayList) {
