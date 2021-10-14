@@ -603,7 +603,7 @@ public class ObjToIntMap {
                 return testPool[i];
             }
         }
-        Object x = new Double(i + 0.5);
+        Object x = Double.valueOf(i + 0.5);
         if (0 <= i && i < MAX_POOL) {
             if (testPool == null) {
                 testPool = new Object[MAX_POOL];
