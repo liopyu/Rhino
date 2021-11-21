@@ -36,6 +36,7 @@ public class NativePromise extends ScriptableObject {
 		constructor.defineConstructorMethod(cx, scope, "resolve", 1, NativePromise::resolve, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "reject", 1, NativePromise::reject, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "all", 1, NativePromise::all, DONTENUM, DONTENUM | READONLY);
+		constructor.defineConstructorMethod(cx, scope, "allSettled", 1, NativePromise::allSettled, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "race", 1, NativePromise::race, DONTENUM, DONTENUM | READONLY);
 
 		ScriptableObject speciesDescriptor = (ScriptableObject) cx.newObject(scope);
@@ -120,6 +121,15 @@ public class NativePromise extends ScriptableObject {
 
 	// Promise.all
 	private static Object all(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+		return doAll(cx, scope, thisObj, args, true);
+	}
+
+	// Promise.allSettled
+	private static Object allSettled(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+		return doAll(cx, scope, thisObj, args, false);
+	}
+
+	private static Object doAll(Context cx, Scriptable scope, Scriptable thisObj, Object[] args, boolean failFast) {
 		Capability cap = new Capability(cx, scope, thisObj);
 		Object arg = (args.length > 0 ? args[0] : Undefined.INSTANCE);
 
@@ -134,7 +144,7 @@ public class NativePromise extends ScriptableObject {
 
 		IteratorLikeIterable.Itr iterator = iterable.iterator();
 		try {
-			PromiseAllResolver resolver = new PromiseAllResolver(iterator, thisObj, cap);
+			PromiseAllResolver resolver = new PromiseAllResolver(iterator, thisObj, cap, failFast);
 			try {
 				return resolver.resolve(cx, scope);
 			} finally {
@@ -512,11 +522,13 @@ public class NativePromise extends ScriptableObject {
 		IteratorLikeIterable.Itr iterator;
 		Scriptable thisObj;
 		Capability capability;
+        boolean failFast;
 
-		PromiseAllResolver(IteratorLikeIterable.Itr iter, Scriptable thisObj, Capability cap) {
+        PromiseAllResolver(IteratorLikeIterable.Itr iter, Scriptable thisObj, Capability cap, boolean failFast) {
 			this.iterator = iter;
 			this.thisObj = thisObj;
 			this.capability = cap;
+            this.failFast = failFast;
 		}
 
 		Object resolve(Context topCx, Scriptable topScope) {
@@ -560,13 +572,34 @@ public class NativePromise extends ScriptableObject {
 
 				// Create a resolution func that will stash its result in the right place
 				PromiseElementResolver eltResolver = new PromiseElementResolver(index);
-				LambdaFunction resolveFunc = new LambdaFunction(topCx, topScope, 1, (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> eltResolver.resolve(cx, scope, (args.length > 0 ? args[0] : Undefined.INSTANCE), this));
+				LambdaFunction resolveFunc = new LambdaFunction(topCx, topScope, 1, (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> {
+					Object value = (args.length > 0 ? args[0] : Undefined.INSTANCE);
+					if (!failFast) {
+						Scriptable elementResult = cx.newObject(scope);
+						elementResult.put(cx, "status", elementResult, "fulfilled");
+						elementResult.put(cx, "value", elementResult, value);
+						value = elementResult;
+					}
+					return eltResolver.resolve(cx, scope, value, this);
+				});
 				resolveFunc.setStandardPropertyAttributes(DONTENUM | READONLY);
+
+				Callable rejectFunc = capability.reject;
+				if (!failFast) {
+					LambdaFunction resolveSettledRejection = new LambdaFunction(topCx, topScope, 1, (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> {
+						Scriptable result = cx.newObject(scope);
+						result.put(cx, "status", result, " rejected");
+						result.put(cx, "reason", result, (args.length > 0 ? args[0] : Undefined.INSTANCE));
+						return eltResolver.resolve(cx, scope, result, this);
+					});
+					resolveSettledRejection.setStandardPropertyAttributes(DONTENUM | READONLY);
+					rejectFunc = resolveSettledRejection;
+				}
 				remainingElements++;
 
 				// Call "then" on the promise with the resolution func
 				Callable thenFunc = ScriptRuntime.getPropFunctionAndThis(topCx, topScope, nextPromise, "then");
-				thenFunc.call(topCx, topScope, topCx.lastStoredScriptable(), new Object[]{resolveFunc, capability.reject});
+				thenFunc.call(topCx, topScope, topCx.lastStoredScriptable(), new Object[]{resolveFunc, rejectFunc});
 				index++;
 			}
 		}
