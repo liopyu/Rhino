@@ -41,6 +41,7 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 	public static final int JSREG_GLOB = 0x1;       // 'g' flag: global
 	public static final int JSREG_FOLD = 0x2;       // 'i' flag: fold
 	public static final int JSREG_MULTILINE = 0x4;  // 'm' flag: multiline
+	public static final int JSREG_STICKY = 0x8;     // 'y' flag: sticky
 	//type of match to perform
 	public static final int TEST = 0;
 	public static final int MATCH = 1;
@@ -106,10 +107,12 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 	private static final int INDEX_LEN = 2;
 	private static final int Id_lastIndex = 1;
 	private static final int Id_source = 2;
-	private static final int Id_global = 3;
-	private static final int Id_ignoreCase = 4;
-	private static final int Id_multiline = 5;
-	private static final int MAX_INSTANCE_ID = 5;
+	private static final int Id_flags = 3;
+	private static final int Id_global = 4;
+	private static final int Id_ignoreCase = 5;
+	private static final int Id_multiline = 6;
+	private static final int Id_sticky = 7;
+	private static final int MAX_INSTANCE_ID = 7;
 	private static final int Id_compile = 1;
 	private static final int Id_toString = 2;
 	private static final int Id_toSource = 3;
@@ -184,6 +187,8 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 					f = JSREG_FOLD;
 				} else if (c == 'm') {
 					f = JSREG_MULTILINE;
+				} else if (c == 'y') {
+					f = JSREG_STICKY;
 				} else {
 					reportError("msg.invalid.re.flag", String.valueOf(c), cx);
 				}
@@ -2190,6 +2195,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 					if (matchCh == anchorCh || ((gData.regexp.flags & JSREG_FOLD) != 0 && upcase(matchCh) == upcase((char) anchorCh))) {
 						break;
 					}
+
+					if ((gData.regexp.flags & JSREG_STICKY) != 0) {
+						return false;
+					}
+
 					++i;
 				}
 			}
@@ -2209,6 +2219,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 				gData.skipped = end;
 				return false;
 			}
+
+            if ((gData.regexp.flags & JSREG_STICKY) != 0) {
+                return false;
+            }
+
 			i = start + gData.skipped;
 		}
 		return false;
@@ -2329,6 +2344,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 			buf.append("(?:)");
 		}
 		buf.append('/');
+		appendFlags(buf);
+		return buf.toString();
+	}
+
+	private void appendFlags(StringBuilder buf) {
 		if ((re.flags & JSREG_GLOB) != 0) {
 			buf.append('g');
 		}
@@ -2338,7 +2358,9 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		if ((re.flags & JSREG_MULTILINE) != 0) {
 			buf.append('m');
 		}
-		return buf.toString();
+		if ((re.flags & JSREG_STICKY) != 0) {
+			buf.append('y');
+		}
 	}
 
 	private Object execSub(Context cx, Scriptable scopeObj, Object[] args, int matchType) {
@@ -2352,24 +2374,24 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		} else {
 			str = ScriptRuntime.toString(cx, args[0]);
 		}
+		boolean globalOrSticky = (re.flags & JSREG_GLOB) != 0 || (re.flags & JSREG_STICKY) != 0;
 		double d = 0;
-		if ((re.flags & JSREG_GLOB) != 0) {
+		if (globalOrSticky) {
 			d = ScriptRuntime.toInteger(cx, lastIndex);
+
+			if (d < 0 || str.length() < d) {
+				setLastIndex(ScriptRuntime.zeroObj, cx);
+				return null;
+			}
 		}
 
-		Object rval;
-		if (d < 0 || str.length() < d) {
-			setLastIndex(ScriptRuntime.zeroObj, cx);
-			rval = null;
-		} else {
-			int[] indexp = {(int) d};
-			rval = executeRegExp(cx, scopeObj, reImpl, str, indexp, matchType);
-			if ((re.flags & JSREG_GLOB) != 0) {
-				if (rval == null || rval == Undefined.INSTANCE) {
-					setLastIndex(ScriptRuntime.zeroObj, cx);
-				} else {
-					setLastIndex((double) indexp[0], cx);
-				}
+		int[] indexp = {(int) d};
+		Object rval = executeRegExp(cx, scopeObj, reImpl, str, indexp, matchType);
+		if (globalOrSticky) {
+			if (rval == null || rval == Undefined.INSTANCE) {
+				setLastIndex(ScriptRuntime.zeroObj, cx);
+			} else {
+				setLastIndex((double) indexp[0], cx);
 			}
 		}
 		return rval;
@@ -2492,9 +2514,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		int id = switch (s) {
 			case "lastIndex" -> Id_lastIndex;
 			case "source" -> Id_source;
+			case "flags" -> Id_flags;
 			case "global" -> Id_global;
 			case "ignoreCase" -> Id_ignoreCase;
 			case "multiline" -> Id_multiline;
+			case "sticky" -> Id_sticky;
 			default -> 0;
 		};
 
@@ -2504,7 +2528,7 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 
 		int attr = switch (id) {
 			case Id_lastIndex -> lastIndexAttr;
-			case Id_source, Id_global, Id_ignoreCase, Id_multiline -> PERMANENT | READONLY | DONTENUM;
+			case Id_source, Id_flags, Id_global, Id_ignoreCase, Id_multiline, Id_sticky -> PERMANENT | READONLY | DONTENUM;
 			default -> throw new IllegalStateException();
 		};
 		return instanceIdInfo(attr, id);
@@ -2515,9 +2539,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		return switch (id) {
 			case Id_lastIndex -> "lastIndex";
 			case Id_source -> "source";
+			case Id_flags -> "flags";
 			case Id_global -> "global";
 			case Id_ignoreCase -> "ignoreCase";
 			case Id_multiline -> "multiline";
+			case Id_sticky -> "sticky";
 			default -> super.getInstanceIdName(id);
 		};
 	}
@@ -2527,9 +2553,15 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		return switch (id) {
 			case Id_lastIndex -> lastIndex;
 			case Id_source -> new String(re.source);
+			case Id_flags -> {
+				StringBuilder buf = new StringBuilder();
+				appendFlags(buf);
+				yield buf.toString();
+			}
 			case Id_global -> (re.flags & JSREG_GLOB) != 0;
 			case Id_ignoreCase -> (re.flags & JSREG_FOLD) != 0;
 			case Id_multiline -> (re.flags & JSREG_MULTILINE) != 0;
+			case Id_sticky -> (re.flags & JSREG_STICKY) != 0;
 			default -> super.getInstanceIdValue(id, cx);
 		};
 	}
@@ -2548,9 +2580,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 				setLastIndex(value, cx);
 				return;
 			case Id_source:
+			case Id_flags:
 			case Id_global:
 			case Id_ignoreCase:
 			case Id_multiline:
+			case Id_sticky:
 				return;
 		}
 		super.setInstanceIdValue(id, value, cx);
