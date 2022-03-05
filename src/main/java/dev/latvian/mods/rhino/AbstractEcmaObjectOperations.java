@@ -201,4 +201,38 @@ class AbstractEcmaObjectOperations {
 		}
 		return (Constructable) species;
 	}
+
+	/**
+	 * Set ( O, P, V, Throw)
+	 *
+	 * <p>https://262.ecma-international.org/12.0/#sec-set-o-p-v-throw
+	 */
+	static void put(Context cx, Scriptable o, String p, Object v, boolean isThrow) {
+		Scriptable base = ScriptableObject.getBase(o, p, cx);
+		if (base == null) {
+			base = o;
+		}
+		if (base instanceof ScriptableObject so) {
+			so.putImpl(cx, p, 0, o, v, isThrow);
+		} else {
+			base.put(cx, p, o, v);
+		}
+	}
+
+	/**
+	 * Set ( O, P, V, Throw)
+	 *
+	 * <p>https://262.ecma-international.org/12.0/#sec-set-o-p-v-throw
+	 */
+	static void put(Context cx, Scriptable o, int p, Object v, boolean isThrow) {
+		Scriptable base = ScriptableObject.getBase(cx, o, p);
+		if (base == null) {
+			base = o;
+		}
+		if (base instanceof ScriptableObject so) {
+			so.putImpl(cx, null, p, o, v, isThrow);
+		} else {
+			base.put(cx, p, o, v);
+		}
+	}
 }

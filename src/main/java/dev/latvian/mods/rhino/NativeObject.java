@@ -632,16 +632,16 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 					Scriptable sourceObj = ScriptRuntime.toObject(cx, thisObj, args[i]);
 					Object[] ids = sourceObj.getIds(cx);
 					for (Object key : ids) {
-						if (key instanceof String) {
-							Object val = sourceObj.get(cx, (String) key, sourceObj);
-							if ((val != NOT_FOUND) && !Undefined.isUndefined(val)) {
-								targetObj.put(cx, (String) key, targetObj, val);
+						if (key instanceof Integer intId) {
+							if (sourceObj.has(cx, intId, sourceObj) && isEnumerable(cx, intId, sourceObj)) {
+								Object val = sourceObj.get(cx, intId, sourceObj);
+								AbstractEcmaObjectOperations.put(cx, targetObj, intId, val, true);
 							}
-						} else if (key instanceof Number) {
-							int ii = ScriptRuntime.toInt32(cx, key);
-							Object val = sourceObj.get(cx, ii, sourceObj);
-							if ((val != NOT_FOUND) && !Undefined.isUndefined(val)) {
-								targetObj.put(cx, ii, targetObj, val);
+						} else {
+							String stringId = ScriptRuntime.toString(cx, key);
+							if (sourceObj.has(cx, stringId, sourceObj) && isEnumerable(cx, stringId, sourceObj)) {
+								Object val = sourceObj.get(cx, stringId, sourceObj);
+								AbstractEcmaObjectOperations.put(cx, targetObj, stringId, val, true);
 							}
 						}
 					}
@@ -949,4 +949,18 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 	}
 
 	// #/string_id_map#
+
+	private static boolean isEnumerable(Context cx, int index, Object obj) {
+		if (obj instanceof ScriptableObject so) {
+			return (so.getAttributes(cx, index) & DONTENUM) == 0;
+		}
+		return true;
+	}
+
+	private static boolean isEnumerable(Context cx, String key, Object obj) {
+		if (obj instanceof ScriptableObject so) {
+			return (so.getAttributes(cx, key) & DONTENUM) == 0;
+		}
+		return true;
+	}
 }

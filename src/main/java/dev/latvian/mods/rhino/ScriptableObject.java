@@ -105,8 +105,12 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 		}
 
 		boolean setValue(Object value, Scriptable owner, Scriptable start, Context cx) {
+			return setValue(value, owner, start, cx, cx.isStrictMode());
+		}
+
+		boolean setValue(Object value, Scriptable owner, Scriptable start, Context cx, boolean isThrow) {
 			if ((attributes & READONLY) != 0) {
-				if (cx.isStrictMode()) {
+				if (isThrow) {
 					throw ScriptRuntime.typeError1(cx, "msg.modify.readonly", name);
 				}
 				return true;
@@ -183,12 +187,12 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 		}
 
 		@Override
-		boolean setValue(Object value, Scriptable owner, Scriptable start, Context cx) {
+		boolean setValue(Object value, Scriptable owner, Scriptable start, Context cx, boolean isThrow) {
 			if (setter == null) {
 				if (getter != null) {
 					// Based on TC39 ES3.1 Draft of 9-Feb-2009, 8.12.4, step 2,
 					// we should throw a TypeError in this case.
-					if (cx.isStrictMode()) {
+					if (isThrow) {
 						String prop = "";
 						if (name != null) {
 							prop = "[" + start.getClassName() + "]." + name;
@@ -222,7 +226,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 				}
 				return true;
 			}
-			return super.setValue(value, owner, start, cx);
+			return super.setValue(value, owner, start, cx, isThrow);
 		}
 
 		@Override
@@ -805,7 +809,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 		return result;
 	}
 
-	private static Scriptable getBase(Scriptable start, String name, Context cx) {
+	static Scriptable getBase(Scriptable start, String name, Context cx) {
 		Scriptable obj = start;
 		do {
 			if (obj.has(cx, name, start)) {
@@ -816,7 +820,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 		return obj;
 	}
 
-	private static Scriptable getBase(Context cx, Scriptable start, int index) {
+	static Scriptable getBase(Context cx, Scriptable start, int index) {
 		Scriptable obj = start;
 		do {
 			if (obj.has(cx, index, start)) {
@@ -1898,7 +1902,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 	 * @param desc a property descriptor
 	 * @return true if this is a data descriptor.
 	 */
-	protected boolean isDataDescriptor(ScriptableObject desc, Context cx) {
+	protected static boolean isDataDescriptor(ScriptableObject desc, Context cx) {
 		return hasProperty(desc, "value", cx) || hasProperty(desc, "writable", cx);
 	}
 
@@ -1908,7 +1912,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 	 * @param desc a property descriptor
 	 * @return true if this is an accessor descriptor.
 	 */
-	protected boolean isAccessorDescriptor(Context cx, ScriptableObject desc) {
+	protected static boolean isAccessorDescriptor(Context cx, ScriptableObject desc) {
 		return hasProperty(desc, "get", cx) || hasProperty(desc, "set", cx);
 	}
 
@@ -2043,12 +2047,16 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 	 * or this != start and a READONLY slot was found.
 	 */
 	private boolean putImpl(Context cx, Object key, int index, Scriptable start, Object value) {
+		return putImpl(cx, key, index, start, value, cx.isStrictMode());
+	}
+
+	boolean putImpl(Context cx, Object key, int index, Scriptable start, Object value, boolean isThrow) {
 		// This method is very hot (basically called on each assignment)
 		// so we inline the extensible/sealed checks below.
 		Slot slot;
 		if (this != start) {
 			slot = slotMap.query(key, index);
-			if (!isExtensible && (slot == null || (!(slot instanceof GetterSlot) && (slot.getAttributes() & READONLY) != 0)) && cx.isStrictMode()) {
+			if (!isExtensible && (slot == null || (!(slot instanceof GetterSlot) && (slot.getAttributes() & READONLY) != 0)) && isThrow) {
 				throw ScriptRuntime.typeError0(cx, "msg.not.extensible");
 			}
 			if (slot == null) {
@@ -2056,7 +2064,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 			}
 		} else if (!isExtensible) {
 			slot = slotMap.query(key, index);
-			if ((slot == null || (!(slot instanceof GetterSlot) && (slot.getAttributes() & READONLY) != 0)) && cx.isStrictMode()) {
+			if ((slot == null || (!(slot instanceof GetterSlot) && (slot.getAttributes() & READONLY) != 0)) && isThrow) {
 				throw ScriptRuntime.typeError0(cx, "msg.not.extensible");
 			}
 			if (slot == null) {
@@ -2068,7 +2076,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 			}
 			slot = slotMap.get(key, index, SlotAccess.MODIFY);
 		}
-		return slot.setValue(value, this, start, cx);
+		return slot.setValue(value, this, start, cx, isThrow);
 	}
 
 	/**
