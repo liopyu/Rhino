@@ -507,6 +507,7 @@ class TokenStream {
 									c = getChar();
 									escapeVal = Kit.xDigitToInt(c, escapeVal);
 									if (escapeVal < 0) {
+										parser.reportError("msg.invalid.escape");
 										continue strLoop;
 									}
 									addToString(c);
