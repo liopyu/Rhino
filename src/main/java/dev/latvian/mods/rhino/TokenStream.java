@@ -314,22 +314,12 @@ class TokenStream {
 				ungetChar(c);
 
 				String str = getStringFromBuffer();
-				if (!containsEscape) {
-					// OPT we shouldn't have to make a string (object!) to
-					// check if it's a keyword.
-
-					// Return the corresponding token if it's a keyword
-					int result = stringToKeyword(str, parser.inUseStrictDirective());
-					if (result != Token.EOF) {
-						// Save the string in case we need to use in
-						// object literal definitions.
-						this.string = (String) allStrings.intern(str);
-						return result;
-					}
-				} else if (isKeyword(str, parser.inUseStrictDirective())) {
-					// If a string contains unicodes, and converted to a keyword,
-					// we convert the last character back to unicode
-					str = convertLastCharToHex(str);
+				// Return the corresponding token if it's a keyword (ES6: check even when
+				// the identifier contains a unicode escape — `if` is a syntax error).
+				int result = stringToKeyword(str, parser.inUseStrictDirective());
+				if (result != Token.EOF) {
+					this.string = (String) allStrings.intern(str);
+					return result;
 				}
 				this.string = (String) allStrings.intern(str);
 				return Token.NAME;
