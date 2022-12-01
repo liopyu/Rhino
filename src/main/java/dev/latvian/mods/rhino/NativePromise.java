@@ -30,7 +30,6 @@ public class NativePromise extends ScriptableObject {
 
 	public static void init(Context cx, Scriptable scope, boolean sealed) {
 		LambdaConstructor constructor = new LambdaConstructor(cx, scope, "Promise", 1, LambdaConstructor.CONSTRUCTOR_NEW, NativePromise::constructor);
-		constructor.setStandardPropertyAttributes(DONTENUM | READONLY);
 		constructor.setPrototypePropertyAttributes(DONTENUM | READONLY | PERMANENT);
 
 		constructor.defineConstructorMethod(cx, scope, "resolve", 1, NativePromise::resolve, DONTENUM, DONTENUM | READONLY);
@@ -388,9 +387,7 @@ public class NativePromise extends ScriptableObject {
 
 		ResolvingFunctions(Context ccx, Scriptable topScope, NativePromise promise) {
 			resolve = new LambdaFunction(ccx, topScope, 1, (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> resolve(cx, scope, promise, (args.length > 0 ? args[0] : Undefined.INSTANCE)));
-			resolve.setStandardPropertyAttributes(DONTENUM | READONLY);
 			reject = new LambdaFunction(ccx, topScope, 1, (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> reject(cx, scope, promise, (args.length > 0 ? args[0] : Undefined.INSTANCE)));
-			reject.setStandardPropertyAttributes(DONTENUM | READONLY);
 		}
 
 		private Object reject(Context cx, Scriptable scope, NativePromise promise, Object reason) {
@@ -482,7 +479,6 @@ public class NativePromise extends ScriptableObject {
 			}
 			Constructable promiseConstructor = (Constructable) pc;
 			LambdaFunction executorFunc = new LambdaFunction(topCx, topScope, 2, (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> executor(cx, args));
-			executorFunc.setStandardPropertyAttributes(DONTENUM | READONLY);
 
 			promise = promiseConstructor.construct(topCx, topScope, new Object[]{executorFunc});
 
@@ -582,7 +578,6 @@ public class NativePromise extends ScriptableObject {
 					}
 					return eltResolver.resolve(cx, scope, value, this);
 				});
-				resolveFunc.setStandardPropertyAttributes(DONTENUM | READONLY);
 
 				Callable rejectFunc = capability.reject;
 				if (!failFast) {
