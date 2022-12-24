@@ -213,7 +213,10 @@ class AbstractEcmaObjectOperations {
 			base = o;
 		}
 		if (base instanceof ScriptableObject so) {
-			so.putImpl(cx, p, 0, o, v, isThrow);
+			if (so.putImpl(cx, p, 0, o, v, isThrow)) {
+				return;
+			}
+			o.put(cx, p, o, v);
 		} else {
 			base.put(cx, p, o, v);
 		}
@@ -230,7 +233,10 @@ class AbstractEcmaObjectOperations {
 			base = o;
 		}
 		if (base instanceof ScriptableObject so) {
-			so.putImpl(cx, null, p, o, v, isThrow);
+			if (so.putImpl(cx, null, p, o, v, isThrow)) {
+				return;
+			}
+			o.put(cx, p, o, v);
 		} else {
 			base.put(cx, p, o, v);
 		}
