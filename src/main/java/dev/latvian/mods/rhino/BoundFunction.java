@@ -85,4 +85,12 @@ public class BoundFunction extends BaseFunction {
 	public int getLength() {
 		return length;
 	}
+
+	@Override
+	public String getFunctionName() {
+		if (targetFunction instanceof BaseFunction) {
+			return "bound " + ((BaseFunction) targetFunction).getFunctionName();
+		}
+		return "";
+	}
 }
