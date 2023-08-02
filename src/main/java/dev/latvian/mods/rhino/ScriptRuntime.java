@@ -948,6 +948,12 @@ public class ScriptRuntime {
 		} else if (Undefined.isUndefined(val)) {
 			throw typeError0(cx, "msg.undef.to.object");
 		} else if (isSymbol(val)) {
+			if (val instanceof SymbolKey) {
+				NativeSymbol result = new NativeSymbol((SymbolKey) val);
+				setBuiltinProtoAndParent(cx, scope, result, TopLevel.Builtins.Symbol);
+				return result;
+			}
+
 			NativeSymbol result = new NativeSymbol((NativeSymbol) val);
 			setBuiltinProtoAndParent(cx, scope, result, TopLevel.Builtins.Symbol);
 			return result;

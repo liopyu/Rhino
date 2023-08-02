@@ -30,6 +30,9 @@ public enum MemberType {
 		if (value instanceof Boolean) {
 			return BOOLEAN;
 		}
+		if (ScriptRuntime.isSymbol(value)) {
+			return SYMBOL;
+		}
 		throw ScriptRuntime.errorWithClassName("msg.invalid.type", value, cx);
 	}
 
