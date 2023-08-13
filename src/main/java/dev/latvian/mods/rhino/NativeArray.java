@@ -794,6 +794,10 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 		long srclen = getLengthProperty(cx, arg, false);
 		long newlen = srclen + offset;
 
+		if (newlen > NativeNumber.MAX_SAFE_INTEGER) {
+			throw ScriptRuntime.typeError1(cx, "msg.arraylength.too.big", String.valueOf(newlen));
+		}
+
 		// First, optimize for a pair of native, dense arrays
 		if ((newlen <= Integer.MAX_VALUE) && (result instanceof final NativeArray denseResult)) {
 			if (denseResult.denseOnly && (arg instanceof final NativeArray denseArg)) {
