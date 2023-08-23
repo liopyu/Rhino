@@ -275,8 +275,16 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	private static Object js_of(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 		final Scriptable result = callConstructorOrCreateArray(cx, scope, thisObj, args.length, true);
 
-		for (int i = 0; i < args.length; i++) {
-			ArrayLikeAbstractOperations.defineElem(cx, result, i, args[i]);
+		if (result instanceof ScriptableObject so) {
+			ScriptableObject desc = ScriptableObject.buildDataDescriptor(result, null, EMPTY, cx);
+			for (int i = 0; i < args.length; i++) {
+				desc.put(cx, "value", desc, args[i]);
+				so.defineOwnProperty(cx, i, desc);
+			}
+		} else {
+			for (int i = 0; i < args.length; i++) {
+				ArrayLikeAbstractOperations.defineElem(cx, result, i, args[i]);
+			}
 		}
 		setLengthProperty(cx, result, args.length);
 
