@@ -117,6 +117,22 @@ class TokenStream {
 		return buf.toString();
 	}
 
+	private static boolean isValidIdentifierName(String str) {
+		int i = 0;
+		for (int c : str.codePoints().toArray()) {
+			if (i++ == 0) {
+				if (c != '$' && c != '_' && !Character.isUnicodeIdentifierStart(c)) {
+					return false;
+				}
+			} else {
+				if (c != '$' && c != 0x200c && c != 0x200d && !Character.isUnicodeIdentifierPart(c)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	private final StringBuilder rawString = new StringBuilder();
 	private final ObjToIntMap allStrings = new ObjToIntMap(50);
 	// Room to backtrace from to < on failed match of the last - in <!--
@@ -341,6 +357,12 @@ class TokenStream {
 					this.string = (String) allStrings.intern(str);
 					return result;
 				}
+
+				if (containsEscape && !isValidIdentifierName(str)) {
+					parser.reportError("msg.invalid.escape");
+					return Token.ERROR;
+				}
+
 				this.string = (String) allStrings.intern(str);
 				return Token.NAME;
 			}
