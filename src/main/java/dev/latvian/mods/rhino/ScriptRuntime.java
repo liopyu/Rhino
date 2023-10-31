@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 /**
@@ -102,7 +103,7 @@ public class ScriptRuntime {
 	 *
 	 * @see ScriptRuntime#toStringIdOrIndex(Context, Object)
 	 */
-	static final class StringIdOrIndex {
+    public static final class StringIdOrIndex {
 		final String stringId;
 		final int index;
 
@@ -114,6 +115,14 @@ public class ScriptRuntime {
 		StringIdOrIndex(int index) {
 			this.stringId = null;
 			this.index = index;
+		}
+
+		public String getStringId() {
+			return stringId;
+		}
+
+		public int getIndex() {
+			return index;
 		}
 	}
 
@@ -1178,10 +1187,30 @@ public class ScriptRuntime {
 	 */
 	static Object getIndexObject(String s) {
 		long indexTest = indexFromString(s);
-		if (indexTest >= 0) {
+		if (indexTest >= 0 && indexTest <= Integer.MAX_VALUE) {
 			return (int) indexTest;
 		}
 		return s;
+	}
+
+	/**
+	 * If "arg" is a "canonical numeric index," any number constructed from a string that doesn't
+	 * have extra whitespace or non-standard formatting, return it -- otherwise return an empty
+	 * option. Defined in ECMA 7.1.21.
+	 */
+	public static Optional<Double> canonicalNumericIndexString(Context cx, String arg) {
+		if ("-0".equals(arg)) {
+			return Optional.of(Double.NEGATIVE_INFINITY);
+		}
+		double num = toNumber(cx, arg);
+		if (Double.isNaN(num)) {
+			return Optional.empty();
+		}
+		String numStr = toString(cx, num);
+		if (numStr.equals(arg)) {
+			return Optional.of(num);
+		}
+		return Optional.empty();
 	}
 
 	/**
@@ -1201,9 +1230,12 @@ public class ScriptRuntime {
 	 * is index. In this case return null and make the index available
 	 * as ScriptRuntime.lastIndexResult(cx). Otherwise return toString(id).
 	 */
-	static StringIdOrIndex toStringIdOrIndex(Context cx, Object id) {
+	public static StringIdOrIndex toStringIdOrIndex(Context cx, Object id) {
 		if (id instanceof Number) {
 			double d = ((Number) id).doubleValue();
+			if (d < 0.0) {
+				return new StringIdOrIndex(toString(cx, id));
+			}
 			int index = (int) d;
 			if (index == d) {
 				return new StringIdOrIndex(index);
@@ -1217,7 +1249,7 @@ public class ScriptRuntime {
 			s = toString(cx, id);
 		}
 		long indexTest = indexFromString(s);
-		if (indexTest >= 0) {
+		if (indexTest >= 0 && indexTest <= Integer.MAX_VALUE) {
 			return new StringIdOrIndex((int) indexTest);
 		}
 		return new StringIdOrIndex(s);
@@ -1314,7 +1346,7 @@ public class ScriptRuntime {
 		}
 
 		int index = (int) dblIndex;
-		if (index == dblIndex) {
+		if (index == dblIndex && index >= 0) {
 			return getObjectIndex(cx, sobj, index);
 		}
 		String s = toString(cx, dblIndex);
@@ -1388,7 +1420,7 @@ public class ScriptRuntime {
 		}
 
 		int index = (int) dblIndex;
-		if (index == dblIndex) {
+		if (index == dblIndex && index >= 0) {
 			return setObjectIndex(cx, sobj, index, value);
 		}
 		String s = toString(cx, dblIndex);

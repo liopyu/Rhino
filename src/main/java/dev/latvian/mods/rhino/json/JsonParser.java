@@ -117,11 +117,11 @@ public class JsonParser {
 					id = readString();
 					consume(':');
 					value = readValue(cx);
-					long index = ScriptRuntime.indexFromString(id);
-					if (index < 0) {
-						object.put(cx, id, object, value);
+					ScriptRuntime.StringIdOrIndex indexObj = ScriptRuntime.toStringIdOrIndex(cx, id);
+					if (indexObj.getStringId() == null) {
+						object.put(cx, indexObj.getIndex(), object, value);
 					} else {
-						object.put(cx, (int) index, object, value);
+						object.put(cx, indexObj.getStringId(), object, value);
 					}
 					needsComma = true;
 				}
