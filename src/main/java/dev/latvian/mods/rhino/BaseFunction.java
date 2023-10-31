@@ -19,9 +19,9 @@ public class BaseFunction extends IdScriptableObject implements Function {
 	static final String GENERATOR_FUNCTION_CLASS = "__GeneratorFunction";
 	private static final Object FUNCTION_TAG = "Function";
 	private static final String FUNCTION_CLASS = "Function";
-	private static final int Id_length = 1;
+	protected static final int Id_length = 1;
 	private static final int Id_arity = 2;
-	private static final int Id_name = 3;
+	protected static final int Id_name = 3;
 	private static final int Id_prototype = 4;
 	private static final int Id_arguments = 5;
 	private static final int MAX_INSTANCE_ID = 5;
@@ -70,6 +70,7 @@ public class BaseFunction extends IdScriptableObject implements Function {
 
 	private Object prototypeProperty;
 	private Object argumentsObj = NOT_FOUND;
+	private String nameValue = null;
 	private boolean isGeneratorFunction = false;
 	// For function object instances, attributes are
 	//  {configurable:false, enumerable:false};
@@ -77,7 +78,7 @@ public class BaseFunction extends IdScriptableObject implements Function {
 	private int prototypePropertyAttributes = PERMANENT | DONTENUM;
 	private int argumentsAttributes = PERMANENT | DONTENUM;
 	// "-1" means the property has been deleted
-	private int namePropertyAttributes = PERMANENT | READONLY | DONTENUM;
+	private int namePropertyAttributes = READONLY | DONTENUM;
 	private int lengthPropertyAttributes = PERMANENT | READONLY | DONTENUM;
 	private int arityPropertyAttributes = PERMANENT | READONLY | DONTENUM;
 
@@ -190,7 +191,7 @@ public class BaseFunction extends IdScriptableObject implements Function {
 		return switch (id) {
 			case Id_length -> lengthPropertyAttributes >= 0 ? getLength() : NOT_FOUND;
 			case Id_arity -> arityPropertyAttributes >= 0 ? getArity() : NOT_FOUND;
-			case Id_name -> namePropertyAttributes >= 0 ? getFunctionName() : NOT_FOUND;
+			case Id_name -> namePropertyAttributes >= 0 ? (nameValue != null ? nameValue : getFunctionName()) : NOT_FOUND;
 			case Id_prototype -> getPrototypeProperty(cx);
 			case Id_arguments -> getArguments(cx);
 			default -> super.getInstanceIdValue(id, cx);
@@ -219,6 +220,11 @@ public class BaseFunction extends IdScriptableObject implements Function {
 			case Id_name:
 				if (value == NOT_FOUND) {
 					namePropertyAttributes = -1;
+                    nameValue = null;
+                } else if (value instanceof CharSequence) {
+                    nameValue = ScriptRuntime.toString(cx, value);
+                } else {
+                    nameValue = "";
 				}
 				return;
 			case Id_arity:

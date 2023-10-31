@@ -859,13 +859,14 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 					checkPropertyChange(cx, name, current, desc);
 					int attr = (info >>> 16);
 					Object value = getProperty(desc, "value", cx);
-					if (value != NOT_FOUND && (attr & READONLY) == 0) {
+					if (value != NOT_FOUND && ((attr & READONLY) == 0 || (attr & PERMANENT) == 0)) {
 						Object currentValue = getInstanceIdValue(id, cx);
 						if (!sameValue(cx, value, currentValue)) {
 							setInstanceIdValue(id, value, cx);
 						}
 					}
-					setAttributes(cx, name, applyDescriptorToAttributeBitset(cx, attr, desc));
+					attr = applyDescriptorToAttributeBitset(cx, attr, desc);
+					setAttributes(cx, name, attr);
 					return;
 				}
 			}
