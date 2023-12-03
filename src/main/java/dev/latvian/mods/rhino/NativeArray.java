@@ -2153,6 +2153,14 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	}
 
 	@Override
+	public void setPrototype(Scriptable p) {
+		super.setPrototype(p);
+		if (!(p instanceof NativeArray)) {
+			setDenseOnly(false);
+		}
+	}
+
+	@Override
 	public boolean contains(Object o) {
 		return indexOf(o) > -1;
 	}
