@@ -77,7 +77,6 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	private static final int Id_entries = 29;
 	private static final int Id_includes = 30;
 	private static final int Id_copyWithin = 31;
-	private static final int SymbolId_iterator = 32;
 	private static final int Id_at = 33;
 	private static final int Id_flat = 34;
 	private static final int Id_flatMap = 35;
@@ -1549,10 +1548,6 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	@Override
 	protected void initPrototypeId(int id, Context cx) {
-		if (id == SymbolId_iterator) {
-			initPrototypeMethod(ARRAY_TAG, id, SymbolKey.ITERATOR, "[Symbol.iterator]", 0, cx);
-			return;
-		}
 		if (id == SymbolId_unscopables) {
 			initPrototypeValue(SymbolId_unscopables, SymbolKey.UNSCOPABLES, makeUnscopables(cx), DONTENUM | READONLY);
 			return;
@@ -1901,7 +1896,6 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 					return new NativeArrayIterator(cx, scope, thisObj, NativeArrayIterator.ArrayIteratorType.ENTRIES);
 
 				case Id_values:
-				case SymbolId_iterator:
 					thisObj = ScriptRuntime.toObject(cx, scope, thisObj);
 					return new NativeArrayIterator(cx, scope, thisObj, NativeArrayIterator.ArrayIteratorType.VALUES);
 			}
@@ -2464,7 +2458,10 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	@Override
 	protected int findPrototypeId(Symbol k) {
 		if (SymbolKey.ITERATOR.equals(k)) {
-			return SymbolId_iterator;
+			// "Symbol.iterator" property of the prototype has the "same value"
+			// as the "values" property. We implement this by returning the
+			// ID of "values" when the iterator symbol is accessed.
+			return Id_values;
 		}
 		if (SymbolKey.UNSCOPABLES.equals(k)) {
 			return SymbolId_unscopables;

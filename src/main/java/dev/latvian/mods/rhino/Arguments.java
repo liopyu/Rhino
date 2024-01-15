@@ -22,16 +22,6 @@ final class Arguments extends IdScriptableObject {
 
 	// the following helper methods assume that 0 < index < args.length
 	private static final int MAX_INSTANCE_ID = Id_caller;
-	private static final BaseFunction iteratorMethod = new BaseFunction() {
-		@Override
-		public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-			// TODO : call %ArrayProto_values%
-			// 9.4.4.6 CreateUnmappedArgumentsObject(argumentsList)
-			//  1. Perform DefinePropertyOrThrow(obj, @@iterator, PropertyDescriptor {[[Value]]:%ArrayProto_values%,
-			//     [[Writable]]: true, [[Enumerable]]: false, [[Configurable]]: true}).
-			return new NativeArrayIterator(cx, scope, thisObj, NativeArrayIterator.ArrayIteratorType.VALUES);
-		}
-	};
 
 	private static class ThrowTypeError extends BaseFunction {
 		private final String propertyName;
@@ -81,7 +71,7 @@ final class Arguments extends IdScriptableObject {
 		calleeObj = activation.function;
 		callerObj = NOT_FOUND;
 
-		defineProperty(cx, SymbolKey.ITERATOR, iteratorMethod, DONTENUM);
+		defineProperty(cx, SymbolKey.ITERATOR, TopLevel.getBuiltinPrototype(ScriptableObject.getTopLevelScope(parent), TopLevel.Builtins.Array, cx).get(cx, "values", parent), DONTENUM);
 	}
 
 	@Override
