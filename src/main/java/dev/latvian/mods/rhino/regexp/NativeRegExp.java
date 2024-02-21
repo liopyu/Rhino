@@ -15,6 +15,7 @@ import dev.latvian.mods.rhino.IdScriptableObject;
 import dev.latvian.mods.rhino.Kit;
 import dev.latvian.mods.rhino.MemberType;
 import dev.latvian.mods.rhino.ScriptRuntime;
+import dev.latvian.mods.rhino.ScriptRuntimeES6;
 import dev.latvian.mods.rhino.Scriptable;
 import dev.latvian.mods.rhino.ScriptableObject;
 import dev.latvian.mods.rhino.Symbol;
@@ -147,6 +148,8 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		}
 
 		defineProperty(scope, "RegExp", ctor, ScriptableObject.DONTENUM, cx);
+
+		ScriptRuntimeES6.addSymbolSpecies(cx, scope, ctor);
 	}
 
 	private static String escapeRegExp(Context cx, Object src) {

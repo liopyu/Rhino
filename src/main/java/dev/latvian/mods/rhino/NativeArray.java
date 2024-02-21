@@ -148,7 +148,8 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 
 	static void init(Scriptable scope, boolean sealed, Context cx) {
 		NativeArray obj = new NativeArray(cx, 0);
-		obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed, cx);
+		IdFunctionObject constructor = obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed, cx);
+		ScriptRuntimeES6.addSymbolSpecies(cx, scope, constructor);
 	}
 
 	static int getMaximumInitialCapacity() {

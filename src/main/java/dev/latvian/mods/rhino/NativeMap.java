@@ -32,13 +32,15 @@ public class NativeMap extends IdScriptableObject {
 
 	static void init(Context cx, Scriptable scope, boolean sealed) {
 		NativeMap obj = new NativeMap(cx);
-		obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, false, cx);
+		IdFunctionObject constructor = obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, false, cx);
 
 		ScriptableObject desc = (ScriptableObject) cx.newObject(scope);
 		desc.put(cx, "enumerable", desc, Boolean.FALSE);
 		desc.put(cx, "configurable", desc, Boolean.TRUE);
 		desc.put(cx, "get", desc, obj.get(cx, NativeSet.GETSIZE, obj));
 		obj.defineOwnProperty(cx, "size", desc);
+
+		ScriptRuntimeES6.addSymbolSpecies(cx, scope, constructor);
 
 		if (sealed) {
 			obj.sealObject(cx);
