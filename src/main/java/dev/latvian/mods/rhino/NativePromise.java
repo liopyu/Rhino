@@ -41,11 +41,7 @@ public class NativePromise extends ScriptableObject {
 		constructor.defineConstructorMethod(cx, scope, "withResolvers", 0, NativePromise::withResolvers, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "try", 1, NativePromise::promiseTry, DONTENUM, DONTENUM | READONLY);
 
-		ScriptableObject speciesDescriptor = (ScriptableObject) cx.newObject(scope);
-		ScriptableObject.putProperty(speciesDescriptor, "enumerable", false, cx);
-		ScriptableObject.putProperty(speciesDescriptor, "configurable", true, cx);
-		ScriptableObject.putProperty(speciesDescriptor, "get", new LambdaFunction(cx, scope, "get [Symbol.species]", 0, (Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> thisObj), cx);
-		constructor.defineOwnProperty(cx, SymbolKey.SPECIES, speciesDescriptor);
+		ScriptRuntimeES6.addSymbolSpecies(cx, scope, constructor);
 
 		constructor.definePrototypeMethod(cx, scope, "then", 2, (Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> {
 			NativePromise self = LambdaConstructor.convertThisObject(lcx, thisObj, NativePromise.class);

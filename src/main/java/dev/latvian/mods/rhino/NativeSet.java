@@ -39,13 +39,7 @@ public class NativeSet extends IdScriptableObject {
 		desc.put(cx, "get", desc, obj.get(cx, GETSIZE, obj));
 		obj.defineOwnProperty(cx, "size", desc);
 
-		ScriptableObject speciesDescriptor = (ScriptableObject) cx.newObject(scope);
-		speciesDescriptor.put(cx, "enumerable", speciesDescriptor, Boolean.FALSE);
-		speciesDescriptor.put(cx, "configurable", speciesDescriptor, Boolean.TRUE);
-		speciesDescriptor.put(cx, "get", speciesDescriptor,
-				new LambdaFunction(cx, scope, "get [Symbol.species]", 0,
-						(Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> thisObj));
-		constructor.defineOwnProperty(cx, SymbolKey.SPECIES, speciesDescriptor, false);
+		ScriptRuntimeES6.addSymbolSpecies(cx, scope, constructor);
 
 		if (sealed) {
 			obj.sealObject(cx);
