@@ -41,7 +41,7 @@ public class NativePromise extends ScriptableObject {
 		ScriptableObject speciesDescriptor = (ScriptableObject) cx.newObject(scope);
 		ScriptableObject.putProperty(speciesDescriptor, "enumerable", false, cx);
 		ScriptableObject.putProperty(speciesDescriptor, "configurable", true, cx);
-		ScriptableObject.putProperty(speciesDescriptor, "get", new LambdaFunction(cx, scope, "get [Symbol.species]", 0, (Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> constructor), cx);
+		ScriptableObject.putProperty(speciesDescriptor, "get", new LambdaFunction(cx, scope, "get [Symbol.species]", 0, (Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> thisObj), cx);
 		constructor.defineOwnProperty(cx, SymbolKey.SPECIES, speciesDescriptor);
 
 		constructor.definePrototypeMethod(cx, scope, "then", 2, (Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> {
