@@ -276,7 +276,7 @@ class TokenStream {
 					c = '\\';
 				}
 			} else {
-				identifierStart = Character.isJavaIdentifierStart((char) c);
+                identifierStart = Character.isUnicodeIdentifierStart(c) || c == '$' || c == '_';
 				if (identifierStart) {
 					stringBufferTop = 0;
 					addToString(c);
@@ -340,7 +340,7 @@ class TokenStream {
 								return Token.ERROR;
 							}
 						} else {
-							if (c == EOF_CHAR || c == BYTE_ORDER_MARK || !Character.isJavaIdentifierPart((char) c)) {
+							if (c == EOF_CHAR || c == BYTE_ORDER_MARK || !(Character.isUnicodeIdentifierPart(c) || c == '$')) {
 								break;
 							}
 							addToString(c);
@@ -1138,13 +1138,19 @@ class TokenStream {
 
 	private void addToString(int c) {
 		int N = stringBufferTop;
-		if (N == stringBuffer.length) {
+        int codePointLen = Character.charCount(c);
+        if (N + codePointLen >= stringBuffer.length) {
 			char[] tmp = new char[stringBuffer.length * 2];
 			System.arraycopy(stringBuffer, 0, tmp, 0, N);
 			stringBuffer = tmp;
 		}
-		stringBuffer[N] = (char) c;
-		stringBufferTop = N + 1;
+        if (codePointLen == 1) {
+            stringBuffer[N] = (char) c;
+        } else {
+            stringBuffer[N] = Character.highSurrogate(c);
+            stringBuffer[N + 1] = Character.lowSurrogate(c);
+        }
+        stringBufferTop = N + codePointLen;
 	}
 
 	private boolean canUngetChar() {
@@ -1193,7 +1199,8 @@ class TokenStream {
 				return EOF_CHAR;
 			}
 			cursor++;
-			c = sourceString.charAt(sourceCursor++);
+			c = sourceString.codePointAt(sourceCursor);
+			sourceCursor += Character.charCount(c);
 
 			if (lineEndChar >= 0) {
 				if (lineEndChar == '\r' && c == '\n') {
