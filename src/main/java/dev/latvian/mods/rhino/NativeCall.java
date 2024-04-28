@@ -33,7 +33,7 @@ public final class NativeCall extends IdScriptableObject {
 	NativeCall() {
 	}
 
-	NativeCall(NativeFunction function, Scriptable scope, Object[] args, boolean isArrow, boolean isStrict, Context cx) {
+	NativeCall(NativeFunction function, Scriptable scope, Object[] args, boolean isArrow, boolean isStrict, boolean argsHasRest, Context cx) {
 		this.function = function;
 
 		setParentScope(scope);
@@ -50,6 +50,18 @@ public final class NativeCall extends IdScriptableObject {
 				String name = function.getParamOrVarName(i);
 				Object val = i < args.length ? args[i] : Undefined.INSTANCE;
 				defineProperty(cx, name, val, PERMANENT);
+			}
+
+			if (argsHasRest) {
+				// The rest parameter collects all remaining arguments into an array
+				Object[] vals;
+				if (args.length > paramCount) {
+					vals = new Object[args.length - paramCount];
+					System.arraycopy(args, paramCount, vals, 0, args.length - paramCount);
+				} else {
+					vals = ScriptRuntime.EMPTY_OBJECTS;
+				}
+				defineProperty(cx, function.getParamOrVarName(paramCount), cx.newArray(scope, vals), PERMANENT);
 			}
 		}
 

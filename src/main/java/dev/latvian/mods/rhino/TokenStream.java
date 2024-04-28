@@ -733,6 +733,12 @@ class TokenStream {
 				case ':':
 					return Token.COLON;
 				case '.':
+					if (matchChar('.')) {
+						if (matchChar('.')) {
+							return Token.DOTDOTDOT;
+						}
+						ungetCharIgnoreLineEnd('.');
+					}
 					return Token.DOT;
 				case '|':
 					if (matchChar('|')) {

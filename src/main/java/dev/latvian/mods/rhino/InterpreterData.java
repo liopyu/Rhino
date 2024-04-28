@@ -34,6 +34,7 @@ final class InterpreterData {
 	int itsMaxCalleeArgs;
 	boolean isStrict;
 	boolean argsHasDefaults;
+	boolean argsHasRest;
 	boolean topLevel;
 	boolean isES6Generator;
 	Object[] literalIds;

@@ -287,4 +287,8 @@ public class ScriptNode extends Scope {
 	public List<Object> getDefaultParams() {
 		return null;
 	}
+
+	public boolean hasRestParameter() {
+		return false;
+	}
 }

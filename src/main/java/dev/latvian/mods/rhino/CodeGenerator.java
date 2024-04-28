@@ -104,6 +104,7 @@ class CodeGenerator extends Icode {
 		if (theFunction.getDefaultParams() != null) {
 			itsData.argsHasDefaults = true;
 		}
+		itsData.argsHasRest = scriptOrFn.hasRestParameter();
 
 		itsData.declaredAsVar = (theFunction.getParent() instanceof VariableInitializer);
 

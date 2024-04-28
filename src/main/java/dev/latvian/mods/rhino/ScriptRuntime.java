@@ -2799,12 +2799,12 @@ public class ScriptRuntime {
 		}
 	}
 
-	public static Scriptable createFunctionActivation(Context cx, Scriptable scope, NativeFunction funObj, Object[] args, boolean isStrict) {
-		return new NativeCall(funObj, scope, args, false, isStrict, cx);
+	public static Scriptable createFunctionActivation(Context cx, Scriptable scope, NativeFunction funObj, Object[] args, boolean isStrict, boolean argsHasRest) {
+		return new NativeCall(funObj, scope, args, false, isStrict, argsHasRest, cx);
 	}
 
-	public static Scriptable createArrowFunctionActivation(Context cx, Scriptable scope, NativeFunction funObj, Object[] args, boolean isStrict) {
-		return new NativeCall(funObj, scope, args, true, isStrict, cx);
+	public static Scriptable createArrowFunctionActivation(Context cx, Scriptable scope, NativeFunction funObj, Object[] args, boolean isStrict, boolean argsHasRest) {
+		return new NativeCall(funObj, scope, args, true, isStrict, argsHasRest, cx);
 	}
 
 	public static void enterActivationFunction(Context cx, Scriptable scope) {

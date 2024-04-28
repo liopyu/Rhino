@@ -741,10 +741,18 @@ public class Parser {
 		do {
 			int tt = peekToken();
 			if (tt == Token.RP) {
+				if (fnNode.hasRestParameter()) {
+					// Error: parameter after rest parameter
+					reportError("msg.parm.after.rest", ts.tokenBeg, ts.tokenEnd - ts.tokenBeg);
+				}
 				fnNode.putIntProp(Node.TRAILING_COMMA, 1);
 				break;
 			}
 			if (tt == Token.LB || tt == Token.LC) {
+				if (fnNode.hasRestParameter()) {
+					// Error: parameter after rest parameter
+					reportError("msg.parm.after.rest", ts.tokenBeg, ts.tokenEnd - ts.tokenBeg);
+				}
 				AstNode expr = destructuringAssignExpr();
 				if (destructuring == null) {
 					destructuring = new HashMap<>();
@@ -772,7 +780,23 @@ public class Parser {
 					destructuring.put(pname, expr);
 				}
 			} else {
+				boolean wasRest = false;
+				if (tt == Token.DOTDOTDOT) {
+					if (fnNode.hasRestParameter()) {
+						// Error: parameter after rest parameter
+						reportError("msg.parm.after.rest", ts.tokenBeg, ts.tokenEnd - ts.tokenBeg);
+					}
+					fnNode.setHasRestParameter(true);
+					wasRest = true;
+					consumeToken();
+				}
+
 				if (mustMatchToken(Token.NAME, "msg.no.parm", true)) {
+					if (!wasRest && fnNode.hasRestParameter()) {
+						// Error: parameter after rest parameter
+						reportError("msg.parm.after.rest", ts.tokenBeg, ts.tokenEnd - ts.tokenBeg);
+					}
+
 					Name paramNameNode = createNameNode();
 					Comment jsdocNodeForName = getAndResetJsDoc();
 					if (jsdocNodeForName != null) {

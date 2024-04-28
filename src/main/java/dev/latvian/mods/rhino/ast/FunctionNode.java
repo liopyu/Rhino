@@ -83,6 +83,7 @@ public class FunctionNode extends ScriptNode {
 	private AstNode memberExprNode;
 	private List<Node[]> destructuringRvalues;
 	private List<Object> defaultParams;
+	private boolean hasRestParameter;
 
 	{
 		type = Token.FUNCTION;
@@ -420,5 +421,14 @@ public class FunctionNode extends ScriptNode {
 		}
 		defaultParams.add(left);
 		defaultParams.add(right);
+	}
+
+	@Override
+	public boolean hasRestParameter() {
+		return hasRestParameter;
+	}
+
+	public void setHasRestParameter(boolean hasRestParameter) {
+		this.hasRestParameter = hasRestParameter;
 	}
 }
