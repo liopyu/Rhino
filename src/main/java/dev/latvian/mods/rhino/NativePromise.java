@@ -245,13 +245,17 @@ public class NativePromise extends ScriptableObject {
 			cx.enqueueMicrotask(() -> fulfillReaction.invoke(cx, scope, result));
 		} else {
 			assert (state == State.REJECTED);
-            if (!handled) {
-                cx.getUnhandledPromiseTracker().promiseHandled(this);
-            }
+			markHandled(cx);
 			cx.enqueueMicrotask(() -> rejectReaction.invoke(cx, scope, result));
 		}
-        handled = true;
 		return capability.promise;
+	}
+
+	private void markHandled(Context cx) {
+		if (!handled) {
+			cx.getUnhandledPromiseTracker().promiseHandled(this);
+			handled = true;
+		}
 	}
 
 	// Promise.prototype.catch
@@ -337,6 +341,9 @@ public class NativePromise extends ScriptableObject {
         cx.getUnhandledPromiseTracker().promiseRejected(this);
 		for (Reaction r : reactions) {
 			cx.enqueueMicrotask(() -> r.invoke(cx, scope, reason));
+		}
+		if (!reactions.isEmpty()) {
+			markHandled(cx);
 		}
 		return Undefined.INSTANCE;
 	}
