@@ -141,8 +141,12 @@ abstract class Icode {
 	static final int// Call to GetTemplateLiteralCallSite
 		Icode_TEMPLATE_LITERAL_CALLSITE = -67;
 
+	static final int
+		Icode_LITERAL_KEYS = -68,
+		Icode_LITERAL_KEY_SET = -69;
+
 	static final int// Last icode
-		MIN_ICODE = -67;
+		MIN_ICODE = -69;
 
 	static boolean validIcode(int icode) {
 		return MIN_ICODE <= icode && icode <= 0;

@@ -16,6 +16,7 @@ import dev.latvian.mods.rhino.ast.AstSymbol;
 import dev.latvian.mods.rhino.ast.FunctionNode;
 import dev.latvian.mods.rhino.ast.Block;
 import dev.latvian.mods.rhino.ast.CatchClause;
+import dev.latvian.mods.rhino.ast.ComputedPropertyKey;
 import dev.latvian.mods.rhino.ast.ConditionalExpression;
 import dev.latvian.mods.rhino.ast.ContinueStatement;
 import dev.latvian.mods.rhino.ast.DestructuringForm;
@@ -622,6 +623,8 @@ public final class IRFactory extends Parser {
 					yield transformVariables(n);
 				} else if (node instanceof ParenthesizedExpression n) {
 					yield transformParenExpr(n);
+				} else if (node instanceof ComputedPropertyKey n) {
+					yield transformComputedPropertyKey(n);
 				} else if (node instanceof LabeledStatement n) {
 					yield transformLabeledStatement(n);
 				} else if (node instanceof LetNode n) {
@@ -1102,19 +1105,30 @@ public final class IRFactory extends Parser {
 		List<ObjectProperty> elems = node.getElements();
 		Node object = new Node(Token.OBJECTLIT);
 		Object[] properties;
+		Object[] computedProperties;
 		if (elems.isEmpty()) {
 			properties = ScriptRuntime.EMPTY_OBJECTS;
+			computedProperties = ScriptRuntime.EMPTY_OBJECTS;
 		} else {
 			int size = elems.size(), i = 0;
 			properties = new Object[size];
+			computedProperties = new Object[size];
 			for (ObjectProperty prop : elems) {
 				Object propKey = getPropKey(prop.getLeft());
-				properties[i++] = propKey;
+				if (propKey == null) {
+					// Computed property key: transform expression now, store in
+					// computedProperties slot. Runtime will resolve to a string/symbol
+					// at evaluation time.
+					Node theId = transform(prop.getLeft());
+					computedProperties[i] = theId;
+				} else {
+					properties[i] = propKey;
+				}
 
 				Name inferrableName = null;
 				if (propKey instanceof String || propKey instanceof Integer) {
 					inferrableName = new Name(0, java.util.Objects.toString(propKey));
-					inferrableName.setLineno(prop.getLeft().getLineno());
+					inferrableName.setLineColumnNumber(prop.getLeft().getLineno(), 0);
 				}
 
 				Node right = transform(prop.getRight());
@@ -1130,9 +1144,11 @@ public final class IRFactory extends Parser {
 					right = createUnary(Token.METHOD, right);
 				}
 				object.addChildToBack(right);
+				i++;
 			}
 		}
 		object.putProp(Node.OBJECT_IDS_PROP, properties);
+		object.putProp(Node.OBJECT_IDS_COMPUTED_PROP, computedProperties);
 		return object;
 	}
 
@@ -1144,6 +1160,11 @@ public final class IRFactory extends Parser {
 		Node result = transform(expr);
 		result.putProp(Node.PARENTHESIZED_PROP, Boolean.TRUE);
 		return result;
+	}
+
+	private Node transformComputedPropertyKey(ComputedPropertyKey node) {
+		Node transformedExpression = transform(node.getExpression());
+		return new Node(node.type, transformedExpression);
 	}
 
 	private Node transformPropertyGet(PropertyGet node) {

@@ -17,6 +17,7 @@ import dev.latvian.mods.rhino.ast.Block;
 import dev.latvian.mods.rhino.ast.BreakStatement;
 import dev.latvian.mods.rhino.ast.CatchClause;
 import dev.latvian.mods.rhino.ast.Comment;
+import dev.latvian.mods.rhino.ast.ComputedPropertyKey;
 import dev.latvian.mods.rhino.ast.ConditionalExpression;
 import dev.latvian.mods.rhino.ast.ContinueStatement;
 import dev.latvian.mods.rhino.ast.DestructuringForm;
@@ -3286,9 +3287,13 @@ public class Parser {
 				}
 			}
 
-			if (this.inUseStrictDirective && propertyName != null) {
+			if (this.inUseStrictDirective && propertyName != null && !(pname instanceof ComputedPropertyKey)) {
 				switch (entryKind) {
-					case PROP_ENTRY, METHOD_ENTRY -> {
+					case PROP_ENTRY -> {
+						getterNames.add(propertyName);
+						setterNames.add(propertyName);
+					}
+					case METHOD_ENTRY -> {
 						if (getterNames.contains(propertyName) || setterNames.contains(propertyName)) {
 							addError("msg.dup.obj.lit.prop.strict", propertyName);
 						}
@@ -3340,6 +3345,20 @@ public class Parser {
 			case Token.NAME -> pname = createNameNode();
 			case Token.STRING -> pname = createStringLiteral();
 			case Token.NUMBER -> pname = createNumberLiteral();
+			case Token.LB -> {
+				int pos = ts.tokenBeg;
+				int lineno = ts.lineno;
+				consumeToken();
+				AstNode expr = assignExpr();
+				if (peekToken() != Token.RB) {
+					reportError("msg.bad.prop");
+				}
+				consumeToken();
+
+				pname = new ComputedPropertyKey(pos, ts.tokenEnd - pos);
+				pname.setLineColumnNumber(lineno, 0);
+				((ComputedPropertyKey) pname).setExpression(expr);
+			}
 			default -> {
 				if (TokenStream.isKeyword(ts.getString(), inUseStrictDirective)) {
 					// convert keyword to property name, e.g. ({if: 1})
@@ -3895,6 +3914,10 @@ public class Parser {
 			} else if (id instanceof NumberLiteral) {
 				Node s = createNumber((int) ((NumberLiteral) id).getNumber());
 				rightElem = new Node(Token.GETELEM, createName(tempName), s);
+			} else if (id instanceof ComputedPropertyKey) {
+				// Per Mozilla/rhino@94aa470b6: report a proper error rather than a generic codeBug.
+				reportError("msg.bad.computed.property.in.destruct");
+				return false;
 			} else {
 				throw codeBug();
 			}

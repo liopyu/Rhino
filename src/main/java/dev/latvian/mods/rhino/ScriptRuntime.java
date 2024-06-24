@@ -3067,17 +3067,28 @@ public class ScriptRuntime {
 					} else {
 						object.put(cx, str, object, value);
 					}
-				} else {
-					int index = (Integer) id;
+				} else if (id instanceof Integer index) {
 					object.put(cx, index, object, value);
+				} else {
+					// Computed property key resolved at runtime to an arbitrary Object.
+					// Coerce via toStringIdOrIndex (handles numeric-looking strings as indices).
+					StringIdOrIndex s = toStringIdOrIndex(cx, id);
+					if (s.stringId == null) {
+						object.put(cx, s.index, object, value);
+					} else if (isSpecialProperty(s.stringId)) {
+						Ref ref = specialRef(cx, scope, object, s.stringId);
+						ref.set(cx, scope, value);
+					} else {
+						object.put(cx, s.stringId, object, value);
+					}
 				}
 			} else {
 				ScriptableObject so = (ScriptableObject) object;
 				Callable getterOrSetter = (Callable) value;
 				boolean isSetter = getterSetter == 1;
-				String key = id instanceof String ? (String) id : null;
-				int index = key == null ? (Integer) id : 0;
-				so.setGetterOrSetter(cx, key, index, getterOrSetter, isSetter);
+				Integer indexObj = id instanceof Integer ? (Integer) id : null;
+				String key = indexObj == null ? ScriptRuntime.toString(cx, id) : null;
+				so.setGetterOrSetter(cx, key, indexObj == null ? 0 : indexObj, getterOrSetter, isSetter);
 			}
 		}
 		return object;
