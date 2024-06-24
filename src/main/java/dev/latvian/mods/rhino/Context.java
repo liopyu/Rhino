@@ -1105,6 +1105,7 @@ public class Context {
 		if (obj instanceof String ||
 			obj instanceof Boolean ||
 			obj instanceof Integer ||
+			obj instanceof Byte ||
 			obj instanceof Short ||
 			obj instanceof Long ||
 			obj instanceof Float ||
