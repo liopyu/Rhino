@@ -1447,7 +1447,7 @@ public final class IRFactory extends Parser {
 		Node newBody = new Node(Token.BLOCK);
 		Node assign;
 		if (destructuring != -1) {
-			assign = createDestructuringAssignment(declType, lvalue, id);
+			assign = createDestructuringAssignment(declType, lvalue, id, this::transform);
 			if (!isForEach && !isForOf && (destructuring == Token.OBJECTLIT || destructuringLen != 2)) {
 				// destructuring assignment is only allowed in for..each or
 				// with an array type of length 2 (to hold key and value)
@@ -1730,7 +1730,7 @@ public final class IRFactory extends Parser {
 					reportError("msg.bad.destruct.op");
 					return right;
 				}
-				return createDestructuringAssignment(-1, left, right);
+				return createDestructuringAssignment(-1, left, right, this::transform);
 			}
 			reportError("msg.bad.assign.left");
 			return right;

@@ -118,6 +118,10 @@ public class Parser {
 		private static final long serialVersionUID = 5882582646773765630L;
 	}
 
+	interface Transformer {
+		Node transform(AstNode node);
+	}
+
 	private static class ConditionData {
 		AstNode condition;
 		int lp = -1;
@@ -3443,14 +3447,18 @@ public class Parser {
 	 * the variables defined in left
 	 */
 	Node createDestructuringAssignment(int type, Node left, Node right) {
+		return createDestructuringAssignment(type, left, right, null);
+	}
+
+	Node createDestructuringAssignment(int type, Node left, Node right, Transformer transformer) {
 		String tempName = currentScriptOrFn.getNextTempName();
-		Node result = destructuringAssignmentHelper(type, left, right, tempName);
+		Node result = destructuringAssignmentHelper(type, left, right, tempName, transformer);
 		Node comma = result.getLastChild();
 		comma.addChildToBack(createName(tempName));
 		return result;
 	}
 
-	Node destructuringAssignmentHelper(int variableType, Node left, Node right, String tempName) {
+	Node destructuringAssignmentHelper(int variableType, Node left, Node right, String tempName, Transformer transformer) {
 		Scope result = createScopeNode(Token.LETEXPR, left.getLineno());
 		result.addChildToFront(new Node(Token.LET, createName(Token.NAME, tempName, right)));
 		try {
@@ -3464,13 +3472,13 @@ public class Parser {
 		List<String> destructuringNames = new ArrayList<>();
 		boolean empty = true;
 		switch (left.getType()) {
-			case Token.ARRAYLIT -> empty = destructuringArray((ArrayLiteral) left, variableType, tempName, comma, destructuringNames);
-			case Token.OBJECTLIT -> empty = destructuringObject((ObjectLiteral) left, variableType, tempName, comma, destructuringNames);
+			case Token.ARRAYLIT -> empty = destructuringArray((ArrayLiteral) left, variableType, tempName, comma, destructuringNames, transformer);
+			case Token.OBJECTLIT -> empty = destructuringObject((ObjectLiteral) left, variableType, tempName, comma, destructuringNames, transformer);
 			case Token.GETPROP, Token.GETELEM -> {
 				switch (variableType) {
 					case Token.CONST, Token.LET, Token.VAR -> reportError("msg.bad.assign.left");
 				}
-				comma.addChildToBack(simpleAssignment(left, createName(tempName)));
+				comma.addChildToBack(simpleAssignment(left, createName(tempName), transformer));
 			}
 			default -> reportError("msg.bad.assign.left");
 		}
@@ -3482,7 +3490,7 @@ public class Parser {
 		return result;
 	}
 
-	boolean destructuringArray(ArrayLiteral array, int variableType, String tempName, Node parent, List<String> destructuringNames) {
+	boolean destructuringArray(ArrayLiteral array, int variableType, String tempName, Node parent, List<String> destructuringNames, Transformer transformer) {
 		boolean empty = true;
 		int setOp = variableType == Token.CONST ? Token.SETCONST : Token.SETNAME;
 		int index = 0;
@@ -3500,7 +3508,7 @@ public class Parser {
 					destructuringNames.add(name);
 				}
 			} else {
-				parent.addChildToBack(destructuringAssignmentHelper(variableType, n, rightElem, currentScriptOrFn.getNextTempName()));
+				parent.addChildToBack(destructuringAssignmentHelper(variableType, n, rightElem, currentScriptOrFn.getNextTempName(), transformer));
 			}
 			index++;
 			empty = false;
@@ -3508,7 +3516,7 @@ public class Parser {
 		return empty;
 	}
 
-	boolean destructuringObject(ObjectLiteral node, int variableType, String tempName, Node parent, List<String> destructuringNames) {
+	boolean destructuringObject(ObjectLiteral node, int variableType, String tempName, Node parent, List<String> destructuringNames, Transformer transformer) {
 		boolean empty = true;
 		int setOp = variableType == Token.CONST ? Token.SETCONST : Token.SETNAME;
 
@@ -3544,7 +3552,7 @@ public class Parser {
 					destructuringNames.add(name);
 				}
 			} else {
-				parent.addChildToBack(destructuringAssignmentHelper(variableType, value, rightElem, currentScriptOrFn.getNextTempName()));
+				parent.addChildToBack(destructuringAssignmentHelper(variableType, value, rightElem, currentScriptOrFn.getNextTempName(), transformer));
 			}
 			empty = false;
 		}
@@ -3585,6 +3593,10 @@ public class Parser {
 	}
 
 	protected Node simpleAssignment(Node left, Node right) {
+		return simpleAssignment(left, right, null);
+	}
+
+	protected Node simpleAssignment(Node left, Node right, Transformer transformer) {
 		int nodeType = left.getType();
 		switch (nodeType) {
 			case Token.NAME -> {
@@ -3602,11 +3614,14 @@ public class Parser {
 				// override getFirstChild/getLastChild and return the appropriate
 				// field, but that seems just as ugly as this casting.
 				if (left instanceof PropertyGet) {
-					obj = ((PropertyGet) left).getTarget();
+					AstNode target = ((PropertyGet) left).getTarget();
+					obj = transformer != null ? transformer.transform(target) : target;
 					id = ((PropertyGet) left).getProperty();
 				} else if (left instanceof ElementGet) {
-					obj = ((ElementGet) left).getTarget();
-					id = ((ElementGet) left).getElement();
+					AstNode target = ((ElementGet) left).getTarget();
+					AstNode elem = ((ElementGet) left).getElement();
+					obj = transformer != null ? transformer.transform(target) : target;
+					id = transformer != null ? transformer.transform(elem) : elem;
 				} else {
 					// This branch is called during IRFactory transform pass.
 					obj = left.getFirstChild();
