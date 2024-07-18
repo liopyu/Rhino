@@ -3471,16 +3471,17 @@ public class Parser {
 		result.addChildToBack(comma);
 		List<String> destructuringNames = new ArrayList<>();
 		boolean empty = true;
-		switch (left.getType()) {
-			case Token.ARRAYLIT -> empty = destructuringArray((ArrayLiteral) left, variableType, tempName, comma, destructuringNames, transformer);
-			case Token.OBJECTLIT -> empty = destructuringObject((ObjectLiteral) left, variableType, tempName, comma, destructuringNames, transformer);
-			case Token.GETPROP, Token.GETELEM -> {
-				switch (variableType) {
-					case Token.CONST, Token.LET, Token.VAR -> reportError("msg.bad.assign.left");
-				}
-				comma.addChildToBack(simpleAssignment(left, createName(tempName), transformer));
+		if (left instanceof ArrayLiteral) {
+			empty = destructuringArray((ArrayLiteral) left, variableType, tempName, comma, destructuringNames, transformer);
+		} else if (left instanceof ObjectLiteral) {
+			empty = destructuringObject((ObjectLiteral) left, variableType, tempName, comma, destructuringNames, transformer);
+		} else if (left.getType() == Token.GETPROP || left.getType() == Token.GETELEM) {
+			switch (variableType) {
+				case Token.CONST, Token.LET, Token.VAR -> reportError("msg.bad.assign.left");
 			}
-			default -> reportError("msg.bad.assign.left");
+			comma.addChildToBack(simpleAssignment(left, createName(tempName), transformer));
+		} else {
+			reportError("msg.bad.assign.left");
 		}
 		if (empty) {
 			// Don't want a COMMA node with no children. Just add a zero.
