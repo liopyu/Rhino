@@ -85,7 +85,27 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	private static final int Id_toSorted = 39;
 	private static final int Id_toSpliced = 40;
 	private static final int Id_with = 41;
-	private static final int MAX_PROTOTYPE_ID = Id_with;
+	private static final int SymbolId_unscopables = 42;
+	private static final int MAX_PROTOTYPE_ID = SymbolId_unscopables;
+
+	private static final String[] UNSCOPABLES = {
+		"at",
+		"copyWithin",
+		"entries",
+		"fill",
+		"find",
+		"findIndex",
+		"findLast",
+		"findLastIndex",
+		"flat",
+		"flatMap",
+		"includes",
+		"keys",
+		"toReversed",
+		"toSorted",
+		"toSpliced",
+		"values",
+	};
 	private static final int ConstructorId_join = -Id_join;
 	private static final int ConstructorId_reverse = -Id_reverse;
 	private static final int ConstructorId_sort = -Id_sort;
@@ -1525,6 +1545,10 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 			initPrototypeMethod(ARRAY_TAG, id, SymbolKey.ITERATOR, "[Symbol.iterator]", 0, cx);
 			return;
 		}
+		if (id == SymbolId_unscopables) {
+			initPrototypeValue(SymbolId_unscopables, SymbolKey.UNSCOPABLES, makeUnscopables(cx), DONTENUM | READONLY);
+			return;
+		}
 
 		String s, fnName = null;
 		int arity;
@@ -2412,7 +2436,20 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 		if (SymbolKey.ITERATOR.equals(k)) {
 			return SymbolId_iterator;
 		}
+		if (SymbolKey.UNSCOPABLES.equals(k)) {
+			return SymbolId_unscopables;
+		}
 		return 0;
+	}
+
+	private Object makeUnscopables(Context cx) {
+		NativeObject obj = (NativeObject) cx.newObject(getParentScope());
+		ScriptableObject desc = buildDataDescriptor(obj, Boolean.TRUE, EMPTY, cx);
+		for (String k : UNSCOPABLES) {
+			obj.defineOwnProperty(cx, k, desc);
+		}
+		obj.setPrototype(null);
+		return obj;
 	}
 
 	@Override
