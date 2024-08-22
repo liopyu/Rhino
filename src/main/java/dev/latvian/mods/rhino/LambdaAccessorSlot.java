@@ -96,8 +96,7 @@ public class LambdaAccessorSlot extends Slot {
 		if (getter != null) {
 			return getter.apply(start);
 		}
-		Object v = super.getValue(start, cx);
-		return v == null ? Undefined.INSTANCE : v;
+		return super.getValue(start, cx);
 	}
 
 	public void setGetter(Context cx, Scriptable scope, Function<Scriptable, Object> getter) {
