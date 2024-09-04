@@ -37,6 +37,7 @@ public class NativePromise extends ScriptableObject {
 		constructor.defineConstructorMethod(cx, scope, "all", 1, NativePromise::all, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "allSettled", 1, NativePromise::allSettled, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "race", 1, NativePromise::race, DONTENUM, DONTENUM | READONLY);
+		constructor.defineConstructorMethod(cx, scope, "any", 1, NativePromise::any, DONTENUM, DONTENUM | READONLY);
 
 		ScriptableObject speciesDescriptor = (ScriptableObject) cx.newObject(scope);
 		ScriptableObject.putProperty(speciesDescriptor, "enumerable", false, cx);
@@ -146,6 +147,36 @@ public class NativePromise extends ScriptableObject {
 			PromiseAllResolver resolver = new PromiseAllResolver(iterator, thisObj, cap, failFast);
 			try {
 				return resolver.resolve(cx, scope);
+			} finally {
+				if (!iterator.isDone()) {
+					iterable.close();
+				}
+			}
+		} catch (RhinoException re) {
+			cap.reject.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{getErrorObject(cx, scope, re)});
+			return cap.promise;
+		}
+	}
+
+	// Promise.any
+	private static Object any(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+		Capability cap = new Capability(cx, scope, thisObj);
+		Object arg = (args.length > 0 ? args[0] : Undefined.INSTANCE);
+
+		IteratorLikeIterable iterable;
+		try {
+			Object maybeIterable = ScriptRuntime.callIterator(cx, scope, arg);
+			iterable = new IteratorLikeIterable(cx, scope, maybeIterable);
+		} catch (RhinoException re) {
+			cap.reject.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{getErrorObject(cx, scope, re)});
+			return cap.promise;
+		}
+
+		IteratorLikeIterable.Itr iterator = iterable.iterator();
+		try {
+			PromiseAnyRejector rejector = new PromiseAnyRejector(iterator, thisObj, cap);
+			try {
+				return rejector.reject(cx, scope);
 			} finally {
 				if (!iterator.isDone()) {
 					iterable.close();
@@ -612,7 +643,89 @@ public class NativePromise extends ScriptableObject {
 		}
 	}
 
+	// This object keeps track of the state necessary to execute Promise.any
+	private static class PromiseAnyRejector {
+		// Limit the number of promises in Promise.any the same as it is in V8.
+		private static final int MAX_PROMISES = 1 << 21;
+
+		final ArrayList<Object> errors = new ArrayList<>();
+		int remainingElements = 1;
+
+		IteratorLikeIterable.Itr iterator;
+		Scriptable thisObj;
+		Capability capability;
+
+		PromiseAnyRejector(IteratorLikeIterable.Itr iter, Scriptable thisObj, Capability cap) {
+			this.iterator = iter;
+			this.thisObj = thisObj;
+			this.capability = cap;
+		}
+
+		Object reject(Context topCx, Scriptable topScope) {
+			int index = 0;
+			// Do this first because we should catch any exception before
+			// invoking the iterator.
+			Callable resolve = ScriptRuntime.getPropFunctionAndThis(topCx, topScope, thisObj, "resolve");
+			Scriptable storedThis = topCx.lastStoredScriptable();
+
+			// Iterate manually because we need to catch exceptions in a special way.
+			while (true) {
+				if (index == MAX_PROMISES) {
+					throw ScriptRuntime.rangeError(topCx, ScriptRuntime.getMessage0("msg.promise.any.toobig"));
+				}
+				boolean hasNext;
+				Object nextVal = Undefined.INSTANCE;
+				boolean nextOk = false;
+				try {
+					hasNext = iterator.hasNext();
+					if (hasNext) {
+						nextVal = iterator.next();
+					}
+					nextOk = true;
+				} finally {
+					if (!nextOk) {
+						iterator.setDone(true);
+					}
+				}
+
+				if (!hasNext) {
+					if (--remainingElements == 0) {
+						Scriptable newArray = topCx.newArray(topScope, errors.toArray());
+						NativeError error = (NativeError) topCx.newObject(topScope, "AggregateError", new Object[]{newArray});
+						throw new JavaScriptException(topCx, error, null, 0);
+					}
+					return capability.promise;
+				}
+
+				errors.add(Undefined.INSTANCE);
+
+				// Call "resolve" to get the next promise in the chain
+				Object nextPromise = resolve.call(topCx, topScope, storedThis, new Object[]{nextVal});
+
+				// Create a resolution func that will stash its result in the right place
+				PromiseElementResolver eltResolver = new PromiseElementResolver(index);
+				LambdaFunction rejectFunc = new LambdaFunction(topCx, topScope, 1, (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> {
+					Object value = (args.length > 0 ? args[0] : Undefined.INSTANCE);
+					return eltResolver.reject(cx, scope, value, this);
+				});
+				remainingElements++;
+
+				// Call "then" on the promise with the resolution func
+				Callable thenFunc = ScriptRuntime.getPropFunctionAndThis(topCx, topScope, nextPromise, "then");
+				thenFunc.call(topCx, topScope, topCx.lastStoredScriptable(), new Object[]{capability.resolve, rejectFunc});
+				index++;
+			}
+		}
+
+		void finalRejection(Context cx, Scriptable scope) {
+			Scriptable newArray = cx.newArray(scope, errors.toArray());
+			NativeError error = (NativeError) cx.newObject(scope, "AggregateError", new Object[]{newArray});
+			capability.reject.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{error});
+		}
+	}
+
 	// This object keeps track of the state necessary to resolve one element in Promise.all
+    // and Promise.any
 	private static class PromiseElementResolver {
 
 		private boolean alreadyCalled = false;
@@ -630,6 +743,18 @@ public class NativePromise extends ScriptableObject {
 			resolver.values.set(index, result);
 			if (--resolver.remainingElements == 0) {
 				resolver.finalResolution(cx, scope);
+			}
+			return Undefined.INSTANCE;
+		}
+
+		Object reject(Context cx, Scriptable scope, Object result, PromiseAnyRejector rejector) {
+			if (alreadyCalled) {
+				return Undefined.INSTANCE;
+			}
+			alreadyCalled = true;
+			rejector.errors.set(index, result);
+			if (--rejector.remainingElements == 0) {
+				rejector.finalRejection(cx, scope);
 			}
 			return Undefined.INSTANCE;
 		}

@@ -254,6 +254,10 @@ public class TopLevel extends IdScriptableObject {
 	 */
 	enum NativeErrors {
 		/**
+		 * The AggregateError
+		 */
+		AggregateError,
+		/**
 		 * Basic Error
 		 */
 		Error,

@@ -35,6 +35,7 @@ public class NativeGlobal implements IdFunctionCall {
 	private static final int Id_uneval = 13;
 	private static final int LAST_SCOPE_FUNCTION_ID = 13;
 	private static final int Id_new_CommonError = 14;
+	private static final int Id_new_AggregateError = 15;
 
 	public static void init(Context cx, Scriptable scope, boolean sealed) {
 		NativeGlobal obj = new NativeGlobal();
@@ -86,7 +87,12 @@ public class NativeGlobal implements IdFunctionCall {
 			ScriptableObject errorProto = (ScriptableObject) ScriptRuntime.newBuiltinObject(cx, scope, TopLevel.Builtins.Error, ScriptRuntime.EMPTY_OBJECTS);
 			errorProto.put(cx, "name", errorProto, name);
 			errorProto.put(cx, "message", errorProto, "");
-			IdFunctionObject ctor = new IdFunctionObject(obj, FTAG, Id_new_CommonError, name, 1, scope);
+			IdFunctionObject ctor;
+			if (error == TopLevel.NativeErrors.AggregateError) {
+				ctor = new IdFunctionObject(obj, FTAG, Id_new_AggregateError, name, 2, scope);
+			} else {
+				ctor = new IdFunctionObject(obj, FTAG, Id_new_CommonError, name, 1, scope);
+			}
 			ctor.markAsConstructor(errorProto);
 			errorProto.put(cx, "constructor", errorProto, ctor);
 			errorProto.setAttributes(cx, "constructor", ScriptableObject.DONTENUM);
@@ -683,6 +689,9 @@ public class NativeGlobal implements IdFunctionCall {
 					// The implementation of all the ECMA error constructors
 					// (SyntaxError, TypeError, etc.)
 					return NativeError.make(cx, scope, f, args);
+
+                case Id_new_AggregateError:
+                    return NativeError.makeAggregate(cx, scope, f, args);
 			}
 		}
 		throw f.unknown();
