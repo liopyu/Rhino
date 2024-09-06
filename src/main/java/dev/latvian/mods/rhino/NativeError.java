@@ -161,6 +161,8 @@ final class NativeError extends IdScriptableObject {
 				Scriptable newArray = cx.newArray(scope, errors.toArray());
 				obj.defineProperty(cx, "errors", newArray, DONTENUM);
 			}
+		} else {
+			throw ScriptRuntime.typeError0(cx, "msg.iterable.expected");
 		}
 		return obj;
 	}
