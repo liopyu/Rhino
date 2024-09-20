@@ -2258,7 +2258,7 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		String s = ScriptRuntime.toString(cx, args.length > 0 ? args[0] : Undefined.INSTANCE);
 
 		Scriptable topLevelScope = ScriptableObject.getTopLevelScope(scope);
-		Function defaultConstructor = ScriptRuntime.getExistingCtor(cx, topLevelScope, getClassName());
+		Constructable defaultConstructor = ScriptRuntime.getExistingCtor(cx, topLevelScope, getClassName());
 		Constructable c = AbstractEcmaObjectOperations.speciesConstructor(cx, thisObj, defaultConstructor);
 
 		String flags = ScriptRuntime.toString(cx, ScriptRuntime.getObjectProp(cx, scope, thisObj, "flags"));

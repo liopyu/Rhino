@@ -984,7 +984,7 @@ public class ScriptRuntime {
 
 	public static Scriptable newObject(Context cx, Scriptable scope, String constructorName, Object[] args) {
 		scope = ScriptableObject.getTopLevelScope(scope);
-		Function ctor = getExistingCtor(cx, scope, constructorName);
+		Constructable ctor = getExistingCtor(cx, scope, constructorName);
 		if (args == null) {
 			args = ScriptRuntime.EMPTY_OBJECTS;
 		}
@@ -993,7 +993,7 @@ public class ScriptRuntime {
 
 	public static Scriptable newBuiltinObject(Context cx, Scriptable scope, TopLevel.Builtins type, Object[] args) {
 		scope = ScriptableObject.getTopLevelScope(scope);
-		Function ctor = TopLevel.getBuiltinCtor(cx, scope, type);
+		Constructable ctor = TopLevel.getBuiltinCtor(cx, scope, type);
 		if (args == null) {
 			args = ScriptRuntime.EMPTY_OBJECTS;
 		}
@@ -1002,7 +1002,7 @@ public class ScriptRuntime {
 
 	static Scriptable newNativeError(Context cx, Scriptable scope, TopLevel.NativeErrors type, Object[] args) {
 		scope = ScriptableObject.getTopLevelScope(scope);
-		Function ctor = TopLevel.getNativeErrorCtor(cx, scope, type);
+		Constructable ctor = TopLevel.getNativeErrorCtor(cx, scope, type);
 		if (args == null) {
 			args = ScriptRuntime.EMPTY_OBJECTS;
 		}
@@ -1116,10 +1116,10 @@ public class ScriptRuntime {
 		return ScriptableObject.getProperty(scope, id, cx);
 	}
 
-	public static Function getExistingCtor(Context cx, Scriptable scope, String constructorName) {
+	public static Constructable getExistingCtor(Context cx, Scriptable scope, String constructorName) {
 		Object ctorVal = ScriptableObject.getProperty(scope, constructorName, cx);
-		if (ctorVal instanceof Function) {
-			return (Function) ctorVal;
+		if (ctorVal instanceof Constructable) {
+			return (Constructable) ctorVal;
 		}
 		if (ctorVal == Scriptable.NOT_FOUND) {
 			throw Context.reportRuntimeError1("msg.ctor.not.found", constructorName, cx);

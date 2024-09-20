@@ -564,10 +564,9 @@ public class NativePromise extends ScriptableObject {
 			if (!(pc instanceof Constructable)) {
 				throw ScriptRuntime.typeError0(topCx, "msg.constructor.expected");
 			}
-			Constructable promiseConstructor = (Constructable) pc;
 			LambdaFunction executorFunc = new LambdaFunction(topCx, topScope, 2, (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> executor(cx, args));
 
-			promise = promiseConstructor.construct(topCx, topScope, new Object[]{executorFunc});
+			promise = ((Constructable) pc).construct(topCx, topScope, new Object[]{executorFunc});
 
 			if (!(rawResolve instanceof Callable)) {
 				throw ScriptRuntime.typeError0(topCx, "msg.function.expected");

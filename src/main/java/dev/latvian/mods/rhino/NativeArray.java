@@ -221,10 +221,10 @@ public class NativeArray extends IdScriptableObject implements List, DataObject 
 	private static Scriptable callConstructorOrCreateArray(Context cx, Scriptable scope, Scriptable arg, long length, boolean lengthAlways) {
 		Scriptable result = null;
 
-		if (arg instanceof Function) {
+		if (arg instanceof Constructable) {
 			try {
 				final Object[] args = (lengthAlways || (length > 0)) ? new Object[]{length} : ScriptRuntime.EMPTY_OBJECTS;
-				result = ((Function) arg).construct(cx, scope, args);
+				result = ((Constructable) arg).construct(cx, scope, args);
 			} catch (EcmaError ee) {
 				if (!"TypeError".equals(ee.getName())) {
 					throw ee;
