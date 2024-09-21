@@ -100,6 +100,11 @@ final class InterpretedFunction extends NativeFunction implements Script {
 	}
 
 	@Override
+	protected boolean hasDefaultParameters() {
+		return idata.argsHasDefaults;
+	}
+
+	@Override
 	protected int getParamAndVarCount() {
 		return idata.argNames.length;
 	}

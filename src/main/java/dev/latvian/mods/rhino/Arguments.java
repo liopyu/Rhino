@@ -155,6 +155,12 @@ final class Arguments extends IdScriptableObject {
 			return false;
 		}
 		NativeFunction f = activation.function;
+		// Default parameters semantics differ from the legacy arguments sharing
+		// model — when defaults are present, the args object MUST NOT alias
+		// the activation slot. Skip sharing.
+		if (f == null || f.hasDefaultParameters()) {
+			return false;
+		}
 		int definedCount = f.getParamCount();
 		if (index < definedCount) {
 			// Check if argument is not hidden by later argument with the same

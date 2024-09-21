@@ -99,6 +99,9 @@ class CodeGenerator extends Icode {
 		if (theFunction.isES6Generator()) {
 			itsData.isES6Generator = true;
 		}
+		if (theFunction.getDefaultParams() != null) {
+			itsData.argsHasDefaults = true;
+		}
 
 		itsData.declaredAsVar = (theFunction.getParent() instanceof VariableInitializer);
 

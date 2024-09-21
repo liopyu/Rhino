@@ -102,6 +102,12 @@ public class BaseFunction extends IdScriptableObject implements Function {
 		return isGeneratorFunction;
 	}
 
+	/** Generated code (and InterpretedFunction) override this to report whether
+	 * the function has any simple default-parameter expressions to evaluate. */
+	protected boolean hasDefaultParameters() {
+		return false;
+	}
+
 	/**
 	 * Gets the value returned by calling the typeof operator on this object.
 	 *

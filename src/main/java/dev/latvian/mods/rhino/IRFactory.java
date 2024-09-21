@@ -881,6 +881,31 @@ public final class IRFactory extends Parser {
 				body.addChildToFront(new Node(Token.EXPR_VOID, destructuring, lineno));
 			}
 
+			/* Process simple default parameters: prepend `if (name === undefined) name = expr;` */
+			List<Object> defaultParams = fn.getDefaultParams();
+			if (defaultParams != null) {
+				int bodyLineno = body.getLineno();
+				for (int i = defaultParams.size() - 1; i > 0; i -= 2) {
+					if (defaultParams.get(i) instanceof AstNode rhs && defaultParams.get(i - 1) instanceof String name) {
+						Node cond = new Node(Token.SHEQ, createName(name), createName("undefined"));
+						Node assignNode = new Node(Token.EXPR_VOID, createAssignment(Token.ASSIGN, createName(name), transform(rhs)), bodyLineno);
+						body.addChildToFront(createIf(cond, assignNode, null, bodyLineno));
+					}
+				}
+			}
+
+			/* transform nodes used as default parameters */
+			List<Node[]> dfns = fn.getDestructuringRvalues();
+			if (dfns != null) {
+				for (var i : dfns) {
+					Node a = i[0];
+					if (i[1] instanceof AstNode) {
+						AstNode b = (AstNode) i[1];
+						a.replaceChild(b, transform(b));
+					}
+				}
+			}
+
 			int syntheticType = fn.getFunctionType();
 			Node pn = initFunction(fn, index, body, syntheticType);
 			return pn;
@@ -1085,23 +1110,6 @@ public final class IRFactory extends Parser {
 		}
 		object.putProp(Node.OBJECT_IDS_PROP, properties);
 		return object;
-	}
-
-	private Object getPropKey(Node id) {
-		Object key;
-		if (id instanceof Name) {
-			String s = ((Name) id).getIdentifier();
-			key = ScriptRuntime.getIndexObject(s);
-		} else if (id instanceof StringLiteral) {
-			String s = ((StringLiteral) id).getValue();
-			key = ScriptRuntime.getIndexObject(s);
-		} else if (id instanceof NumberLiteral) {
-			double n = ((NumberLiteral) id).getNumber();
-			key = ScriptRuntime.getIndexObject(cx, n);
-		} else {
-			throw Kit.codeBug();
-		}
-		return key;
 	}
 
 	private Node transformParenExpr(ParenthesizedExpression node) {
@@ -1330,7 +1338,7 @@ public final class IRFactory extends Parser {
 				if (right == null) {  // TODO:  should this ever happen?
 					node.addChildToBack(left);
 				} else {
-					Node d = createDestructuringAssignment(node.getType(), left, right);
+					Node d = createDestructuringAssignment(node.getType(), left, right, this::transform);
 					node.addChildToBack(d);
 				}
 			} else {

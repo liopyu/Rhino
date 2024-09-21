@@ -274,4 +274,17 @@ public class ScriptNode extends Scope {
 	public void setInStrictMode(boolean inStrictMode) {
 		this.inStrictMode = inStrictMode;
 	}
+
+	public List<Node[]> getDestructuringRvalues() {
+		return null;
+	}
+
+	// Overridden in FunctionNode
+	public void putDestructuringRvalues(Node left, Node right) {
+	}
+
+	// Overridden in FunctionNode. Stored as a flat List alternating [name, expr, name, expr, ...].
+	public List<Object> getDefaultParams() {
+		return null;
+	}
 }

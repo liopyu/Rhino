@@ -81,6 +81,8 @@ public class FunctionNode extends ScriptNode {
 	private List<Node> generatorResumePoints;
 	private Map<Node, int[]> liveLocals;
 	private AstNode memberExprNode;
+	private List<Node[]> destructuringRvalues;
+	private List<Object> defaultParams;
 
 	{
 		type = Token.FUNCTION;
@@ -392,5 +394,31 @@ public class FunctionNode extends ScriptNode {
 
 	public enum Form {
 		FUNCTION, GETTER, SETTER, METHOD
+	}
+
+	@Override
+	public List<Node[]> getDestructuringRvalues() {
+		return destructuringRvalues;
+	}
+
+	@Override
+	public void putDestructuringRvalues(Node left, Node right) {
+		if (destructuringRvalues == null) {
+			destructuringRvalues = new ArrayList<>();
+		}
+		destructuringRvalues.add(new Node[]{left, right});
+	}
+
+	@Override
+	public List<Object> getDefaultParams() {
+		return defaultParams;
+	}
+
+	public void putDefaultParams(Object left, Object right) {
+		if (defaultParams == null) {
+			defaultParams = new ArrayList<>();
+		}
+		defaultParams.add(left);
+		defaultParams.add(right);
 	}
 }

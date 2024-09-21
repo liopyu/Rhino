@@ -61,7 +61,8 @@ public class Node implements Iterable<Node> {
 	public static final int DESTRUCTURING_SHORTHAND = 26; // JS 1.8 destructuring shorthand
 	public static final int ARROW_FUNCTION_PROP = 27;
 	public static final int TEMPLATE_LITERAL_PROP = 28;
-	public static final int LAST_PROP = 28;
+	public static final int OBJECT_LITERAL_DESTRUCTURING = 29;
+	public static final int LAST_PROP = 29;
 
 	// values of ISNUMBER_PROP to specify
 	// which of the children are Number types
