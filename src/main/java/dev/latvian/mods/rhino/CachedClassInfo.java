@@ -286,6 +286,11 @@ public class CachedClassInfo {
 						accessible.info = info;
 						accessible.signature = signature;
 						map.put(signature, accessible);
+					} else if (info.method.getReturnType() != accessible.info.method.getReturnType()
+							&& accessible.info.method.getReturnType().isAssignableFrom(info.method.getReturnType())) {
+						// Bytecode may contain bridge methods with the same parameter signature
+						// but a more concrete (covariant) return type. Prefer the concrete one.
+						accessible.info = info;
 					}
 
 					if (info.isHidden) {
