@@ -145,8 +145,22 @@ abstract class Icode {
 		Icode_LITERAL_KEYS = -68,
 		Icode_LITERAL_KEY_SET = -69;
 
+	// Jump if stack head is null or undefined
+	static final int Icode_IF_NULL_UNDEF = -70;
+	// Jump if stack head is NOT null or undefined
+	static final int Icode_IF_NOT_NULL_UNDEF = -71;
+
+	// Optional-chain variants of the function-call helpers
+	static final int Icode_NAME_AND_THIS_OPTIONAL = -72;
+	static final int Icode_PROP_AND_THIS_OPTIONAL = -73;
+	static final int Icode_ELEM_AND_THIS_OPTIONAL = -74;
+	static final int Icode_VALUE_AND_THIS_OPTIONAL = -75;
+
+	// Optional-chain variant of special call
+	static final int Icode_CALLSPECIAL_OPTIONAL = -76;
+
 	static final int// Last icode
-		MIN_ICODE = -69;
+		MIN_ICODE = -76;
 
 	static boolean validIcode(int icode) {
 		return MIN_ICODE <= icode && icode <= 0;

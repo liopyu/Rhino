@@ -663,13 +663,20 @@ class TokenStream {
 				case ',':
 					return Token.COMMA;
 				case '?':
-					if (matchChar('?')) {
+					if (peekChar() == '.') {
+						// ?.digit is to be treated as ? .num
+						getChar();
+						if (!isDigit(peekChar())) {
+							return Token.QUESTION_DOT;
+						}
+						ungetChar('.');
+					} else if (matchChar('?')) {
+						if (matchChar('=')) {
+							return Token.ASSIGN_NULLISH;
+						}
 						return Token.NULLISH_COALESCING;
-					} else if (matchChar('.')) {
-						return Token.OPTIONAL_CHAINING;
-					} else {
-						return Token.HOOK;
 					}
+					return Token.HOOK;
 				case ':':
 					return Token.COLON;
 				case '.':

@@ -63,7 +63,8 @@ public class Node implements Iterable<Node> {
 	public static final int TEMPLATE_LITERAL_PROP = 28;
 	public static final int OBJECT_LITERAL_DESTRUCTURING = 29;
 	public static final int OBJECT_IDS_COMPUTED_PROP = 30;
-	public static final int LAST_PROP = 30;
+	public static final int OPTIONAL_CHAINING = 31;
+	public static final int LAST_PROP = 31;
 
 	// values of ISNUMBER_PROP to specify
 	// which of the children are Number types
@@ -900,6 +901,7 @@ public class Node implements Iterable<Node> {
 			case Token.ASSIGN_LSH:
 			case Token.ASSIGN_RSH:
 			case Token.ASSIGN_URSH:
+			case Token.ASSIGN_NULLISH:
 			case Token.ENTERWITH:
 			case Token.LEAVEWITH:
 			case Token.RETURN:

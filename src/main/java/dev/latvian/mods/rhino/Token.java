@@ -104,8 +104,7 @@ public interface Token {
 	int STRICT_SETNAME = 74;
 	int NULLISH_COALESCING = 75; // nullish coalescing operator (??)
 	int POW = 76; // power (**)
-	int OPTIONAL_CHAINING = 77; // optional chaining operator (?.)
-	int GETOPTIONAL = 78;
+	int QUESTION_DOT = 77; // optional chaining operator (?.)
 	// End of interpreter bytecodes
 	int LAST_BYTECODE_TOKEN = 81;
 	int TRY = 82;
@@ -129,73 +128,74 @@ public interface Token {
 	int ASSIGN_MUL = 100;  // *=
 	int ASSIGN_DIV = 101;  // /=
 	int ASSIGN_MOD = 102;  // %=
+	int ASSIGN_NULLISH = 103; // ??=
 	int FIRST_ASSIGN = ASSIGN;
-	int LAST_ASSIGN = ASSIGN_MOD;
-	int HOOK = 103; // conditional (?:)
-	int COLON = 104; // :
-	int OR = 105; // logical or (||)
-	int AND = 106; // logical and (&&)
-	int INC = 107; // increment (++)
-	int DEC = 108; // decrement (--)
-	int DOT = 109; // member operator (.)
-	int FUNCTION = 110; // function keyword
-	int EXPORT = 111; // export keyword
-	int IMPORT = 112; // import keyword
-	int IF = 113; // if keyword
-	int ELSE = 114; // else keyword
-	int SWITCH = 115; // switch keyword
-	int CASE = 116; // case keyword
-	int DEFAULT = 117; // default keyword
-	int WHILE = 118; // while keyword
-	int DO = 119; // do keyword
-	int FOR = 120; // for keyword
-	int BREAK = 121; // break keyword
-	int CONTINUE = 122; // continue keyword
-	int VAR = 123; // var keyword
-	int WITH = 124; // with keyword
-	int CATCH = 125; // catch keyword
-	int FINALLY = 126; // finally keyword
-	int VOID = 127; // void keyword
-	int RESERVED = 128; // reserved keywords
-	int EMPTY = 129;
+	int LAST_ASSIGN = ASSIGN_NULLISH;
+	int HOOK = 104; // conditional (?:)
+	int COLON = 105; // :
+	int OR = 106; // logical or (||)
+	int AND = 107; // logical and (&&)
+	int INC = 108; // increment (++)
+	int DEC = 109; // decrement (--)
+	int DOT = 110; // member operator (.)
+	int FUNCTION = 111; // function keyword
+	int EXPORT = 112; // export keyword
+	int IMPORT = 113; // import keyword
+	int IF = 114; // if keyword
+	int ELSE = 115; // else keyword
+	int SWITCH = 116; // switch keyword
+	int CASE = 117; // case keyword
+	int DEFAULT = 118; // default keyword
+	int WHILE = 119; // while keyword
+	int DO = 120; // do keyword
+	int FOR = 121; // for keyword
+	int BREAK = 122; // break keyword
+	int CONTINUE = 123; // continue keyword
+	int VAR = 124; // var keyword
+	int WITH = 125; // with keyword
+	int CATCH = 126; // catch keyword
+	int FINALLY = 127; // finally keyword
+	int VOID = 128; // void keyword
+	int RESERVED = 129; // reserved keywords
+	int EMPTY = 130;
 	// types used for the parse tree - these never get returned  by the scanner.
-	int BLOCK = 130; // statement block
-	int LABEL = 131; // label
-	int TARGET = 132;
-	int LOOP = 133;
-	int EXPR_VOID = 134; // expression statement in functions
-	int EXPR_RESULT = 135; // expression statement in scripts
-	int JSR = 136;
-	int SCRIPT = 137; // top-level node for entire script
-	int TYPEOFNAME = 138; // for typeof(simple-name)
-	int USE_STACK = 139;
-	int SETPROP_OP = 140; // x.y op= something
-	int SETELEM_OP = 141; // x[y] op= something
-	int LOCAL_BLOCK = 142;
-	int SET_REF_OP = 143; // *reference op= something
+	int BLOCK = 131; // statement block
+	int LABEL = 132; // label
+	int TARGET = 133;
+	int LOOP = 134;
+	int EXPR_VOID = 135; // expression statement in functions
+	int EXPR_RESULT = 136; // expression statement in scripts
+	int JSR = 137;
+	int SCRIPT = 138; // top-level node for entire script
+	int TYPEOFNAME = 139; // for typeof(simple-name)
+	int USE_STACK = 140;
+	int SETPROP_OP = 141; // x.y op= something
+	int SETELEM_OP = 142; // x[y] op= something
+	int LOCAL_BLOCK = 143;
+	int SET_REF_OP = 144; // *reference op= something
 	// Optimizer-only-tokens
-	int TO_OBJECT = 150;
-	int TO_DOUBLE = 151;
-	int GET = 152;  // JS 1.5 get pseudo keyword
-	int SET = 153;  // JS 1.5 set pseudo keyword
-	int LET = 154;  // JS 1.7 let pseudo keyword
-	int CONST = 155;
-	int SETCONST = 156;
-	int SETCONSTVAR = 157;
-	int ARRAYCOMP = 158;  // array comprehension
-	int LETEXPR = 159;
-	int WITHEXPR = 160;
+	int TO_OBJECT = 151;
+	int TO_DOUBLE = 152;
+	int GET = 153;  // JS 1.5 get pseudo keyword
+	int SET = 154;  // JS 1.5 set pseudo keyword
+	int LET = 155;  // JS 1.7 let pseudo keyword
+	int CONST = 156;
+	int SETCONST = 157;
+	int SETCONSTVAR = 158;
+	int ARRAYCOMP = 159;  // array comprehension
+	int LETEXPR = 160;
+	int WITHEXPR = 161;
 	// int DEBUGGER = 161;
-	int COMMENT = 162;
-	int GENEXPR = 163;
-	int METHOD = 164;  // ES6 MethodDefinition
-	int ARROW = 165;  // ES6 ArrowFunction
-	int YIELD_STAR = 166;  // ES6 "yield *", a specialization of yield
-	int TEMPLATE_LITERAL = 167;  // template literal
-	int TEMPLATE_CHARS = 168;  // template literal - literal section
-	int TEMPLATE_LITERAL_SUBST = 169;  // template literal - substitution
-	int TAGGED_TEMPLATE_LITERAL = 170;  // template literal - tagged/handler
-	int COMPUTED_PROPERTY = 171;  // computed property in object initializer [x]
+	int COMMENT = 163;
+	int GENEXPR = 164;
+	int METHOD = 165;  // ES6 MethodDefinition
+	int ARROW = 166;  // ES6 ArrowFunction
+	int YIELD_STAR = 167;  // ES6 "yield *", a specialization of yield
+	int TEMPLATE_LITERAL = 168;  // template literal
+	int TEMPLATE_CHARS = 169;  // template literal - literal section
+	int TEMPLATE_LITERAL_SUBST = 170;  // template literal - substitution
+	int TAGGED_TEMPLATE_LITERAL = 171;  // template literal - tagged/handler
+	int COMPUTED_PROPERTY = 172;  // computed property in object initializer [x]
 	int LAST_TOKEN = COMPUTED_PROPERTY;
 
 	/**
@@ -311,6 +311,7 @@ public interface Token {
 			case ASSIGN_MUL -> "ASSIGN_MUL";
 			case ASSIGN_DIV -> "ASSIGN_DIV";
 			case ASSIGN_MOD -> "ASSIGN_MOD";
+			case ASSIGN_NULLISH -> "ASSIGN_NULLISH";
 			case HOOK -> "HOOK";
 			case COLON -> "COLON";
 			case OR -> "OR";
@@ -374,8 +375,7 @@ public interface Token {
 			case TAGGED_TEMPLATE_LITERAL -> "TAGGED_TEMPLATE_LITERAL";
 			case NULLISH_COALESCING -> "NULLISH_COALESCING";
 			case POW -> "POW";
-			case OPTIONAL_CHAINING -> "OPTIONAL_CHAINING";
-			case GETOPTIONAL -> "GETOPTIONAL";
+			case QUESTION_DOT -> "QUESTION_DOT";
 			default -> throw new IllegalStateException(String.valueOf(token));
 		};
 	}

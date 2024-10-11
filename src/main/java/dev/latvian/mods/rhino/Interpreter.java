@@ -601,6 +601,24 @@ public final class Interpreter extends Icode implements Evaluator {
 								}
 								stack[stackTop--] = null;
 								break jumplessRun;
+							case Icode_IF_NULL_UNDEF: {
+								Object val = frame.stack[stackTop];
+								--stackTop;
+								if (val != null && !Undefined.isUndefined(val)) {
+									frame.pc += 2;
+									continue;
+								}
+								break jumplessRun;
+							}
+							case Icode_IF_NOT_NULL_UNDEF: {
+								Object val = frame.stack[stackTop];
+								--stackTop;
+								if (val == null || Undefined.isUndefined(val)) {
+									frame.pc += 2;
+									continue;
+								}
+								break jumplessRun;
+							}
 							case Token.GOTO:
 								break jumplessRun;
 							case Icode_GOSUB:
@@ -697,9 +715,6 @@ public final class Interpreter extends Icode implements Evaluator {
 								stackTop = doBitOp(frame, op, stack, sDbl, stackTop, cx);
 								continue;
 							}
-							case Token.NULLISH_COALESCING:
-								stackTop = doNullishCoalescing(frame, stack, sDbl, stackTop);
-								continue;
 							case Token.URSH: {
 								double lDbl = stack_double(frame, stackTop - 1, cx);
 								int rIntValue = stack_int32(frame, stackTop, cx) & 0x1F;
@@ -775,14 +790,6 @@ public final class Interpreter extends Icode implements Evaluator {
 									lhs = ScriptRuntime.wrapNumber(sDbl[stackTop]);
 								}
 								stack[stackTop] = ScriptRuntime.getObjectProp(cx, frame.scope, lhs, stringReg);
-								continue;
-							}
-							case Token.GETOPTIONAL: {
-								Object lhs = stack[stackTop];
-								if (lhs == DBL_MRK) {
-									lhs = ScriptRuntime.wrapNumber(sDbl[stackTop]);
-								}
-								stack[stackTop] = ScriptRuntime.getObjectPropOptional(cx, frame.scope, lhs, stringReg);
 								continue;
 							}
 							case Token.SETPROP: {
@@ -896,11 +903,59 @@ public final class Interpreter extends Icode implements Evaluator {
 								stack[stackTop] = cx.lastStoredScriptable();
 								continue;
 							}
+							case Icode_NAME_AND_THIS_OPTIONAL:
+								// stringReg: name
+								++stackTop;
+								stack[stackTop] = ScriptRuntime.getNameFunctionAndThisOptional(cx, frame.scope, stringReg);
+								++stackTop;
+								stack[stackTop] = cx.lastStoredScriptable();
+								continue;
+							case Icode_PROP_AND_THIS_OPTIONAL: {
+								Object obj = stack[stackTop];
+								if (obj == DBL_MRK) {
+									obj = ScriptRuntime.wrapNumber(sDbl[stackTop]);
+								}
+								// stringReg: property
+								stack[stackTop] = ScriptRuntime.getPropFunctionAndThisOptional(cx, frame.scope, obj, stringReg);
+								++stackTop;
+								stack[stackTop] = cx.lastStoredScriptable();
+								continue;
+							}
+							case Icode_ELEM_AND_THIS_OPTIONAL: {
+								Object obj = stack[stackTop - 1];
+								if (obj == DBL_MRK) {
+									obj = ScriptRuntime.wrapNumber(sDbl[stackTop - 1]);
+								}
+								Object id = stack[stackTop];
+								if (id == DBL_MRK) {
+									id = ScriptRuntime.wrapNumber(sDbl[stackTop]);
+								}
+								stack[stackTop - 1] = ScriptRuntime.getElemFunctionAndThisOptional(cx, frame.scope, obj, id);
+								stack[stackTop] = cx.lastStoredScriptable();
+								continue;
+							}
+							case Icode_VALUE_AND_THIS_OPTIONAL: {
+								Object value = stack[stackTop];
+								if (value == DBL_MRK) {
+									value = ScriptRuntime.wrapNumber(sDbl[stackTop]);
+								}
+								stack[stackTop] = ScriptRuntime.getValueFunctionAndThisOptional(cx, value);
+								++stackTop;
+								stack[stackTop] = cx.lastStoredScriptable();
+								continue;
+							}
 							case Icode_CALLSPECIAL: {
 								if (instructionCounting) {
 									cx.instructionCount += INVOCATION_COST;
 								}
-								stackTop = doCallSpecial(cx, frame, stack, sDbl, stackTop, iCode, indexReg);
+								stackTop = doCallSpecial(cx, frame, stack, sDbl, stackTop, iCode, indexReg, false);
+								continue;
+							}
+							case Icode_CALLSPECIAL_OPTIONAL: {
+								if (instructionCounting) {
+									cx.instructionCount += INVOCATION_COST;
+								}
+								stackTop = doCallSpecial(cx, frame, stack, sDbl, stackTop, iCode, indexReg, true);
 								continue;
 							}
 							case Token.CALL:
@@ -1579,13 +1634,6 @@ public final class Interpreter extends Icode implements Evaluator {
 		return stackTop;
 	}
 
-	private static int doNullishCoalescing(CallFrame frame, Object[] stack, double[] sDbl, int stackTop) {
-		Object a = frame.stack[stackTop - 1];
-		Object b = frame.stack[stackTop];
-		stack[--stackTop] = a == null || Undefined.isUndefined(a) ? b : a;
-		return stackTop;
-	}
-
 	private static int doDelName(Context cx, CallFrame frame, int op, Object[] stack, double[] sDbl, int stackTop) {
 		Object rhs = stack[stackTop];
 		if (rhs == UniqueTag.DOUBLE_MARK) {
@@ -1655,7 +1703,7 @@ public final class Interpreter extends Icode implements Evaluator {
 		return stackTop;
 	}
 
-	private static int doCallSpecial(Context cx, CallFrame frame, Object[] stack, double[] sDbl, int stackTop, byte[] iCode, int indexReg) {
+	private static int doCallSpecial(Context cx, CallFrame frame, Object[] stack, double[] sDbl, int stackTop, byte[] iCode, int indexReg, boolean isOptionalChainingCall) {
 		int callType = iCode[frame.pc] & 0xFF;
 		boolean isNew = (iCode[frame.pc + 1] != 0);
 		int sourceLine = getIndex(iCode, frame.pc + 2);
@@ -1680,7 +1728,7 @@ public final class Interpreter extends Icode implements Evaluator {
 			Scriptable functionThis = (Scriptable) stack[stackTop + 1];
 			Callable function = (Callable) stack[stackTop];
 			Object[] outArgs = getArgsArray(stack, sDbl, stackTop + 2, indexReg);
-			stack[stackTop] = ScriptRuntime.callSpecial(cx, frame.scope, function, functionThis, outArgs, frame.thisObj, callType, frame.idata.itsSourceFile, sourceLine);
+			stack[stackTop] = ScriptRuntime.callSpecial(cx, frame.scope, function, functionThis, outArgs, frame.thisObj, callType, frame.idata.itsSourceFile, sourceLine, isOptionalChainingCall);
 		}
 		frame.pc += 4;
 		return stackTop;

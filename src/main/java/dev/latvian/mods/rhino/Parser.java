@@ -2306,6 +2306,9 @@ public class Parser {
 
 			markDestructuring(pn);
 			int opPos = ts.tokenBeg;
+			if (isNotValidSimpleAssignmentTarget(pn)) {
+				reportError("msg.syntax.invalid.assignment.lhs");
+			}
 
 			pn = new Assignment(tt, pn, assignExpr(), opPos);
 
@@ -2325,6 +2328,13 @@ public class Parser {
 			reportError("msg.syntax");
 		}
 		return pn;
+	}
+
+	private static boolean isNotValidSimpleAssignmentTarget(AstNode pn) {
+		if (pn.getType() == Token.GETPROP) {
+			return isNotValidSimpleAssignmentTarget(((PropertyGet) pn).getLeft());
+		}
+		return pn.getType() == Token.QUESTION_DOT;
 	}
 
 	private AstNode condExpr() throws IOException {
@@ -2674,34 +2684,24 @@ public class Parser {
 		int pos = pn.getPosition();
 		int lineno;
 		int column;
+		boolean isOptionalChain = false;
 		tailLoop:
 		for (; ; ) {
 			int tt = peekToken();
 			switch (tt) {
-				case Token.DOT, Token.OPTIONAL_CHAINING:
+				case Token.DOT, Token.QUESTION_DOT:
 					lineno = ts.lineno;
 					column = ts.getTokenColumn();
-					pn = propertyAccess(tt, pn);
+					isOptionalChain |= (tt == Token.QUESTION_DOT);
+					pn = propertyAccess(tt, pn, isOptionalChain);
 					pn.setLineColumnNumber(lineno, 0);
 					break;
 
 				case Token.LB:
 					consumeToken();
-					int lb = ts.tokenBeg, rb = -1;
 					lineno = ts.lineno;
 					column = ts.getTokenColumn();
-					AstNode expr = expr();
-					int end = getNodeEnd(expr);
-					if (mustMatchToken(Token.RB, "msg.no.bracket.index", true)) {
-						rb = ts.tokenBeg;
-						end = ts.tokenEnd;
-					}
-					ElementGet g = new ElementGet(pos, end - pos);
-					g.setTarget(pn);
-					g.setElement(expr);
-					g.setParens(lb, rb);
-					g.setLineColumnNumber(lineno, 0);
-					pn = g;
+					pn = makeElemGet(pn, ts.tokenBeg, lineno);
 					break;
 
 				case Token.LP:
@@ -2710,22 +2710,7 @@ public class Parser {
 					}
 					lineno = ts.lineno;
 					column = ts.getTokenColumn();
-					consumeToken();
-					checkCallRequiresActivation(pn);
-					FunctionCall f = new FunctionCall(pos);
-					f.setTarget(pn);
-					// Assign the line number for the function call to where
-					// the paren appeared, not where the name expression started.
-					f.setLineColumnNumber(lineno, 0);
-					f.setLp(ts.tokenBeg - pos);
-					List<AstNode> args = argumentList();
-					if (args != null && args.size() > ARGC_LIMIT) {
-						reportError("msg.too.many.function.args");
-					}
-					f.setArguments(args);
-					f.setRp(ts.tokenBeg - pos);
-					f.setLength(ts.tokenEnd - pos);
-					pn = f;
+					pn = makeFunctionCall(pn, pos, lineno, isOptionalChain);
 					break;
 				case Token.COMMENT:
 					//Ignoring all the comments, because previous statement may not be terminated properly.
@@ -2759,7 +2744,7 @@ public class Parser {
 	 * @param pn the left-hand side (target) of the operator.  Never null.
 	 * @return a PropertyGet or ErrorNode
 	 */
-	private AstNode propertyAccess(int tt, AstNode pn) throws IOException {
+	private AstNode propertyAccess(int tt, AstNode pn, boolean isOptionalChain) throws IOException {
 		if (pn == null) {
 			codeBug();
 		}
@@ -2769,18 +2754,67 @@ public class Parser {
 
 		int maybeName = nextToken();
 		if (maybeName != Token.NAME && !(TokenStream.isKeyword(ts.getString(), inUseStrictDirective))) {
+			if (tt == Token.QUESTION_DOT && maybeName == Token.LB) {
+				// a ?.[ expr ]
+				ElementGet g = makeElemGet(pn, ts.tokenBeg, ts.lineno);
+				g.setType(Token.QUESTION_DOT);
+				return g;
+			}
+			if (tt == Token.QUESTION_DOT && maybeName == Token.LP) {
+				// a function call such as f?.()
+				return makeFunctionCall(pn, pn.getPosition(), lineno, isOptionalChain);
+			}
 			reportError("msg.no.name.after.dot");
 		}
 
 		Name name = createNameNode(true, Token.GETPROP);
 		PropertyGet pg = new PropertyGet(pn, name, dotPos);
 
-		if (tt == Token.OPTIONAL_CHAINING) {
-			pg.setType(Token.GETOPTIONAL);
+		if (isOptionalChain) {
+			pg.setType(Token.QUESTION_DOT);
 		}
 
 		pg.setLineColumnNumber(lineno, 0);
 		return pg;
+	}
+
+	private FunctionCall makeFunctionCall(AstNode pn, int pos, int lineno, boolean isOptionalChain) throws IOException {
+		consumeToken();
+		checkCallRequiresActivation(pn);
+		FunctionCall f = new FunctionCall(pos);
+		f.setTarget(pn);
+		// Assign the line number for the function call to where
+		// the paren appeared, not where the name expression started.
+		f.setLineColumnNumber(lineno, 0);
+		f.setLp(ts.tokenBeg - pos);
+		List<AstNode> args = argumentList();
+		if (args != null && args.size() > ARGC_LIMIT) {
+			reportError("msg.too.many.function.args");
+		}
+		f.setArguments(args);
+		f.setRp(ts.tokenBeg - pos);
+		f.setLength(ts.tokenEnd - pos);
+		if (isOptionalChain) {
+			f.markIsOptionalCall();
+		}
+		return f;
+	}
+
+	private ElementGet makeElemGet(AstNode pn, int lb, int lineno) throws IOException {
+		int pos = pn.getPosition();
+		AstNode expr = expr();
+		int end = getNodeEnd(expr);
+		int rb = -1;
+		if (mustMatchToken(Token.RB, "msg.no.bracket.index", true)) {
+			rb = ts.tokenBeg;
+			end = ts.tokenEnd;
+		}
+		ElementGet g = new ElementGet(pos, end - pos);
+		g.setTarget(pn);
+		g.setElement(expr);
+		g.setParens(lb, rb);
+		g.setLineColumnNumber(lineno, 0);
+		return g;
 	}
 
 	private AstNode destructuringPrimaryExpr() throws IOException, ParserException {

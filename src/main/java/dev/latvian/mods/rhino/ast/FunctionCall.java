@@ -23,6 +23,7 @@ public class FunctionCall extends AstNode {
 	protected List<AstNode> arguments;
 	protected int lp = -1;
 	protected int rp = -1;
+	protected boolean optionalCall = false;
 
 	{
 		type = Token.CALL;
@@ -140,5 +141,15 @@ public class FunctionCall extends AstNode {
 	public void setParens(int lp, int rp) {
 		this.lp = lp;
 		this.rp = rp;
+	}
+
+	/** Marks that the call is preceded by the optional chaining operator ?. */
+	public void markIsOptionalCall() {
+		this.optionalCall = true;
+	}
+
+	/** Returns whether the call is preceded by the optional chaining operator ?. */
+	public boolean isOptionalCall() {
+		return optionalCall;
 	}
 }
