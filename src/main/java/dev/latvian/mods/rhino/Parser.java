@@ -720,7 +720,7 @@ public class Parser {
 		// Would prefer not to call createDestructuringAssignment until codegen,
 		// but the symbol definitions have to happen now, before body is parsed.
 		Map<String, Node> destructuring = null;
-		Map<String, Node> destructuringDefault = null;
+		Map<String, AstNode> destructuringDefault = null;
 		Set<String> paramNames = new HashSet<>();
 		do {
 			int tt = peekToken();
@@ -785,7 +785,7 @@ public class Parser {
 			Node destructuringNode = new Node(Token.COMMA);
 			// Add assignment helper for each destructuring parameter
 			for (Map.Entry<String, Node> param : destructuring.entrySet()) {
-				Node defaultValue = null;
+				AstNode defaultValue = null;
 				if (destructuringDefault != null) {
 					defaultValue = destructuringDefault.get(param.getKey());
 				}
@@ -900,7 +900,7 @@ public class Parser {
 		// Would prefer not to call createDestructuringAssignment until codegen,
 		// but the symbol definitions have to happen now, before body is parsed.
 		Map<String, Node> destructuring = new HashMap<>();
-		Map<String, Node> destructuringDefault = new HashMap<>();
+		Map<String, AstNode> destructuringDefault = new HashMap<>();
 		Set<String> paramNames = new HashSet<>();
 
 		PerFunctionVariables savedVars = new PerFunctionVariables(fnNode);
@@ -919,7 +919,7 @@ public class Parser {
 				Node destructuringNode = new Node(Token.COMMA);
 				// Add assignment helper for each destructuring parameter
 				for (Map.Entry<String, Node> param : destructuring.entrySet()) {
-					Node defaultValue = null;
+					AstNode defaultValue = null;
 					if (destructuringDefault != null) {
 						defaultValue = destructuringDefault.get(param.getKey());
 					}
@@ -948,7 +948,7 @@ public class Parser {
 		return fnNode;
 	}
 
-	private void arrowFunctionParams(FunctionNode fnNode, AstNode params, Map<String, Node> destructuring, Map<String, Node> destructuringDefault, Set<String> paramNames) {
+	private void arrowFunctionParams(FunctionNode fnNode, AstNode params, Map<String, Node> destructuring, Map<String, AstNode> destructuringDefault, Set<String> paramNames) {
 		if (params instanceof ArrayLiteral || params instanceof ObjectLiteral) {
 			markDestructuring(params);
 			fnNode.addParam(params);
@@ -3539,11 +3539,11 @@ public class Parser {
 		return createDestructuringAssignment(type, left, right, null, transformer);
 	}
 
-	Node createDestructuringAssignment(int type, Node left, Node right, Node defaultValue) {
+    Node createDestructuringAssignment(int type, Node left, Node right, AstNode defaultValue) {
 		return createDestructuringAssignment(type, left, right, defaultValue, null);
 	}
 
-	Node createDestructuringAssignment(int type, Node left, Node right, Node defaultValue, Transformer transformer) {
+	Node createDestructuringAssignment(int type, Node left, Node right, AstNode defaultValue, Transformer transformer) {
 		String tempName = currentScriptOrFn.getNextTempName();
 		Node result = destructuringAssignmentHelper(type, left, right, tempName, defaultValue, transformer);
 		Node comma = result.getLastChild();
@@ -3551,7 +3551,7 @@ public class Parser {
 		return result;
 	}
 
-	Node destructuringAssignmentHelper(int variableType, Node left, Node right, String tempName, Node defaultValue, Transformer transformer) {
+	Node destructuringAssignmentHelper(int variableType, Node left, Node right, String tempName, AstNode defaultValue, Transformer transformer) {
 		Scope result = createScopeNode(Token.LETEXPR, left.getLineno());
 		result.addChildToFront(new Node(Token.LET, createName(Token.NAME, tempName, right)));
 		try {
@@ -3584,7 +3584,7 @@ public class Parser {
 		return result;
 	}
 
-	boolean destructuringArray(ArrayLiteral array, int variableType, String tempName, Node parent, List<String> destructuringNames, Node defaultValue, Transformer transformer) {
+	boolean destructuringArray(ArrayLiteral array, int variableType, String tempName, Node parent, List<String> destructuringNames, AstNode defaultValue, Transformer transformer) {
 		boolean empty = true;
 		int setOp = variableType == Token.CONST ? Token.SETCONST : Token.SETNAME;
 		int index = 0;
@@ -3632,27 +3632,17 @@ public class Parser {
 			//              : $1[0])
 			//          : x
 
-			if ((n.getRight() instanceof FunctionNode
-					|| n.getRight() instanceof UpdateExpression
-					|| n.getRight() instanceof ParenthesizedExpression)
-					&& transformer != null) {
-				right = transformer.transform(n.getRight());
-			} else {
-				right = n.getRight();
-			}
+			right = (transformer != null) ? transformer.transform(n.getRight()) : n.getRight();
 
 			Node cond_inner = new Node(Token.HOOK, new Node(Token.SHEQ, createName("undefined"), rightElem), right, rightElem);
 
-			// if right is a function/update expression, it should be processed later
-			// store it in the node to be processed
-			if ((right instanceof FunctionNode
-					|| right instanceof UpdateExpression
-					|| right instanceof ParenthesizedExpression)
-					&& transformer == null) {
+			Node cond = new Node(Token.HOOK, new Node(Token.SHEQ, createName("undefined"), createName(name)), cond_inner, left);
+
+			// store it to be transformed later
+			if (transformer == null) {
 				currentScriptOrFn.putDestructuringRvalues(cond_inner, right);
 			}
 
-			Node cond = new Node(Token.HOOK, new Node(Token.SHEQ, createName("undefined"), createName(name)), cond_inner, left);
 			parent.addChildToBack(new Node(setOp, createName(Token.BINDNAME, name, null), cond));
 			if (variableType != -1) {
 				defineSymbol(variableType, name, true);
@@ -3687,37 +3677,25 @@ public class Parser {
 		return key;
 	}
 
-	private void setupDefaultValues(String tempName, Node parent, Node defaultValue, int setOp, Transformer transformer) {
+	private void setupDefaultValues(String tempName, Node parent, AstNode defaultValue, int setOp, Transformer transformer) {
 		if (defaultValue != null) {
 			// if there's defaultValue it can be substituted for tempName if that's undefined
 			// i.e. $1 = ($1 == undefined) ? defaultValue : $1
-			Node defaultRvalue = new Node(defaultValue.getType());
 
-			if (defaultValue instanceof ArrayLiteral) {
-				for (AstNode child : ((ArrayLiteral) defaultValue).getElements()) {
-					defaultRvalue.addChildToBack(child);
-				}
-			} else if (defaultValue instanceof ObjectLiteral) {
-				List<ObjectProperty> elems = ((ObjectLiteral) defaultValue).getElements();
-				Object[] props = new Object[elems.size()];
-				int i = 0;
-				for (ObjectProperty child : elems) {
-					Object key = getPropKey(child.getLeft());
-					Node right = child.getRight();
-					props[i++] = key;
-					defaultRvalue.addChildToBack(right);
-				}
-				defaultRvalue.putProp(Node.OBJECT_IDS_PROP, props);
-			}
+			Node defaultRvalue = transformer != null ? transformer.transform(defaultValue) : defaultValue;
 
 			Node cond_default = new Node(Token.HOOK, new Node(Token.SHEQ, createName(tempName), createName("undefined")), defaultRvalue, createName(tempName));
+
+			if (transformer == null) {
+				currentScriptOrFn.putDestructuringRvalues(cond_default, defaultRvalue);
+			}
 
 			Node set_default = new Node(setOp, createName(Token.BINDNAME, tempName, null), cond_default);
 			parent.addChildToBack(set_default);
 		}
 	}
 
-	boolean destructuringObject(ObjectLiteral node, int variableType, String tempName, Node parent, List<String> destructuringNames, Node defaultValue, Transformer transformer) {
+	boolean destructuringObject(ObjectLiteral node, int variableType, String tempName, Node parent, List<String> destructuringNames, AstNode defaultValue, Transformer transformer) {
 		boolean empty = true;
 		int setOp = variableType == Token.CONST ? Token.SETCONST : Token.SETNAME;
 		boolean defaultValuesSetup = false;
