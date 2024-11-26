@@ -179,24 +179,24 @@ public class Node implements Iterable<Node> {
 		right.next = null;
 	}
 
-	public Node(int nodeType, int line) {
+	public Node(int nodeType, int line, int column) {
 		type = nodeType;
-		lineno = line;
+		setLineColumnNumber(line, column);
 	}
 
-	public Node(int nodeType, Node child, int line) {
+	public Node(int nodeType, Node child, int line, int column) {
 		this(nodeType, child);
-		lineno = line;
+		setLineColumnNumber(line, column);
 	}
 
-	public Node(int nodeType, Node left, Node right, int line) {
+	public Node(int nodeType, Node left, Node right, int line, int column) {
 		this(nodeType, left, right);
-		lineno = line;
+		setLineColumnNumber(line, column);
 	}
 
-	public Node(int nodeType, Node left, Node mid, Node right, int line) {
+	public Node(int nodeType, Node left, Node mid, Node right, int line, int column) {
 		this(nodeType, left, mid, right);
-		lineno = line;
+		setLineColumnNumber(line, column);
 	}
 
 	public int getType() {
@@ -515,9 +515,21 @@ public class Node implements Iterable<Node> {
 		return lineno;
 	}
 
-	public void setLineno(int lineno) {
+	public void setLineColumnNumber(int lineno, int column) {
 		this.lineno = lineno;
+		this.column = column;
 	}
+
+	/**
+	 * @return the column of where a Node is defined in source. If the column is -1, it was never
+	 *     initialized. One-based.
+	 *     <p>May be overridden by sub classes
+	 */
+	public int getColumn() {
+		return column;
+	}
+
+	private int column = -1;
 
 	/**
 	 * Can only be called when <code>getType() == Token.NUMBER</code>

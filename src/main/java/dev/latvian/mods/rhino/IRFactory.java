@@ -126,8 +126,8 @@ public final class IRFactory extends Parser {
 		switchBlock.addChildToBack(switchBreakTarget);
 	}
 
-	private static Node createExprStatementNoReturn(Node expr, int lineno) {
-		return new Node(Token.EXPR_VOID, expr, lineno);
+    private static Node createExprStatementNoReturn(Node expr, int lineno, int column) {
+        return new Node(Token.EXPR_VOID, expr, lineno, column);
 	}
 
 	private static Node createString(String string) {
@@ -199,7 +199,7 @@ public final class IRFactory extends Parser {
 		loop.addChildrenToBack(body);
 		if (loopType == LOOP_WHILE || loopType == LOOP_FOR) {
 			// propagate lineno to condition
-			loop.addChildrenToBack(new Node(Token.EMPTY, loop.getLineno()));
+            loop.addChildrenToBack(new Node(Token.EMPTY, loop.getLineno(), loop.getColumn()));
 		}
 		loop.addChildToBack(condTarget);
 		loop.addChildToBack(IFEQ);
@@ -234,7 +234,7 @@ public final class IRFactory extends Parser {
 		return loop;
 	}
 
-	private static Node createIf(Node cond, Node ifTrue, Node ifFalse, int lineno) {
+	private static Node createIf(Node cond, Node ifTrue, Node ifFalse, int lineno, int column) {
 		int condStatus = isAlwaysDefinedBoolean(cond);
 		if (condStatus == ALWAYS_TRUE_BOOLEAN) {
 			return ifTrue;
@@ -243,10 +243,10 @@ public final class IRFactory extends Parser {
 				return ifFalse;
 			}
 			// Replace if (false) xxx by empty block
-			return new Node(Token.BLOCK, lineno);
+            return new Node(Token.BLOCK, lineno, column);
 		}
 
-		Node result = new Node(Token.BLOCK, lineno);
+        Node result = new Node(Token.BLOCK, lineno, column);
 		Node ifNotTarget = Node.newTarget();
 		Jump IFNE = new Jump(Token.IFNE, cond);
 		IFNE.target = ifNotTarget;
@@ -263,6 +263,11 @@ public final class IRFactory extends Parser {
 		} else {
 			result.addChildToBack(ifNotTarget);
 		}
+
+        if (cond.getFirstChild() != null) {
+            Node conditionalChild = cond.getFirstChild();
+            result.setLineColumnNumber(conditionalChild.getLineno(), conditionalChild.getColumn());
+        }
 
 		return result;
 	}
@@ -649,14 +654,14 @@ public final class IRFactory extends Parser {
 		// }
 
 		int lineno = node.getLineno();
-		Scope scopeNode = createScopeNode(Token.ARRAYCOMP, lineno);
+		Scope scopeNode = createScopeNode(Token.ARRAYCOMP, lineno, 0);
 		String arrayName = currentScriptOrFn.getNextTempName();
 		pushScope(scopeNode);
 		try {
 			defineSymbol(Token.LET, arrayName);
-			Node block = new Node(Token.BLOCK, lineno);
+			Node block = new Node(Token.BLOCK, lineno, 0);
 			Node newArray = createCallOrNew(Token.NEW, createName("Array"));
-			Node init = new Node(Token.EXPR_VOID, createAssignment(Token.ASSIGN, createName(arrayName), newArray), lineno);
+			Node init = new Node(Token.EXPR_VOID, createAssignment(Token.ASSIGN, createName(arrayName), newArray), lineno, 0);
 			block.addChildToBack(init);
 			block.addChildToBack(arrayCompTransformHelper(node, arrayName));
 			scopeNode.addChildToBack(block);
@@ -668,7 +673,7 @@ public final class IRFactory extends Parser {
 	}
 
 	private Node arrayCompTransformHelper(ArrayComprehension node, String arrayName) {
-		int lineno = node.getLineno();
+        int lineno = node.getLineno(), column = node.getColumn();
 		Node expr = transform(node.getResult());
 
 		List<ArrayComprehensionLoop> loops = node.getLoops();
@@ -702,10 +707,10 @@ public final class IRFactory extends Parser {
 		// generate code for tmpArray.push(body)
 		Node call = createCallOrNew(Token.CALL, createPropertyGet(createName(arrayName), null, "push", 0));
 
-		Node body = new Node(Token.EXPR_VOID, call, lineno);
+		Node body = new Node(Token.EXPR_VOID, call, lineno, 0);
 
 		if (node.getFilter() != null) {
-			body = createIf(transform(node.getFilter()), body, null, lineno);
+			body = createIf(transform(node.getFilter()), body, null, lineno, 0);
 		}
 
 		// Now walk loops in reverse to build up the body statement.
@@ -825,7 +830,7 @@ public final class IRFactory extends Parser {
 
 	private Node transformExprStmt(ExpressionStatement node) {
 		Node expr = transform(node.getExpression());
-		return new Node(node.getType(), expr, node.getLineno());
+        return new Node(node.getType(), expr, node.getLineno(), node.getColumn());
 	}
 
 	private Node transformForInLoop(ForInLoop loop) {
@@ -878,7 +883,7 @@ public final class IRFactory extends Parser {
 			Node body = transform(fn.getBody());
 
 			if (destructuring != null) {
-				body.addChildToFront(new Node(Token.EXPR_VOID, destructuring, lineno));
+				body.addChildToFront(new Node(Token.EXPR_VOID, destructuring, lineno, 0));
 			}
 
 			/* Process simple default parameters: prepend `if (name === undefined) name = expr;` */
@@ -888,8 +893,8 @@ public final class IRFactory extends Parser {
 				for (int i = defaultParams.size() - 1; i > 0; i -= 2) {
 					if (defaultParams.get(i) instanceof AstNode rhs && defaultParams.get(i - 1) instanceof String name) {
 						Node cond = new Node(Token.SHEQ, createName(name), createName("undefined"));
-						Node assignNode = new Node(Token.EXPR_VOID, createAssignment(Token.ASSIGN, createName(name), transform(rhs)), bodyLineno);
-						body.addChildToFront(createIf(cond, assignNode, null, bodyLineno));
+						Node assignNode = new Node(Token.EXPR_VOID, createAssignment(Token.ASSIGN, createName(name), transform(rhs)), bodyLineno, 0);
+						body.addChildToFront(createIf(cond, assignNode, null, bodyLineno, 0));
 					}
 				}
 			}
@@ -918,7 +923,7 @@ public final class IRFactory extends Parser {
 
 	private Node transformFunctionCall(FunctionCall node) {
 		Node call = createCallOrNew(Token.CALL, transform(node.getTarget()));
-		call.setLineno(node.getLineno());
+		call.setLineColumnNumber(node.getLineno(), node.getColumn());
 		List<AstNode> args = node.getArguments();
 		for (AstNode arg : args) {
 			call.addChildToBack(transform(arg));
@@ -949,7 +954,7 @@ public final class IRFactory extends Parser {
 			Node body = genExprTransformHelper(node);
 
 			if (destructuring != null) {
-				body.addChildToFront(new Node(Token.EXPR_VOID, destructuring, lineno));
+				body.addChildToFront(new Node(Token.EXPR_VOID, destructuring, lineno, 0));
 			}
 
 			int syntheticType = fn.getFunctionType();
@@ -960,12 +965,12 @@ public final class IRFactory extends Parser {
 		}
 
 		Node call = createCallOrNew(Token.CALL, pn);
-		call.setLineno(node.getLineno());
+        call.setLineColumnNumber(node.getLineno(), node.getColumn());
 		return call;
 	}
 
 	private Node genExprTransformHelper(GeneratorExpression node) {
-		int lineno = node.getLineno();
+        int lineno = node.getLineno(), column = node.getColumn();
 		Node expr = transform(node.getResult());
 
 		List<GeneratorExpressionLoop> loops = node.getLoops();
@@ -996,12 +1001,12 @@ public final class IRFactory extends Parser {
 		}
 
 		// generate code for tmpArray.push(body)
-		Node yield = new Node(Token.YIELD, expr, node.getLineno());
+        Node yield = new Node(Token.YIELD, expr, node.getLineno(), node.getColumn());
 
-		Node body = new Node(Token.EXPR_VOID, yield, lineno);
+        Node body = new Node(Token.EXPR_VOID, yield, lineno, column);
 
 		if (node.getFilter() != null) {
-			body = createIf(transform(node.getFilter()), body, null, lineno);
+            body = createIf(transform(node.getFilter()), body, null, lineno, column);
 		}
 
 		// Now walk loops in reverse to build up the body statement.
@@ -1031,7 +1036,7 @@ public final class IRFactory extends Parser {
 		if (n.getElsePart() != null) {
 			ifFalse = transform(n.getElsePart());
 		}
-		return createIf(cond, ifTrue, ifFalse, n.getLineno());
+		return createIf(cond, ifTrue, ifFalse, n.getLineno(), 0);
 	}
 
 	private Node transformInfix(InfixExpression node) {
@@ -1069,7 +1074,7 @@ public final class IRFactory extends Parser {
 
 	private Node transformNewExpr(NewExpression node) {
 		Node nx = createCallOrNew(Token.NEW, transform(node.getTarget()));
-		nx.setLineno(node.getLineno());
+		nx.setLineColumnNumber(node.getLineno(), node.getColumn());
 		for (AstNode arg : node.getArguments()) {
 			nx.addChildToBack(transform(arg));
 		}
@@ -1149,7 +1154,7 @@ public final class IRFactory extends Parser {
 
 	private Node transformTemplateLiteralCall(TaggedTemplateLiteral node) {
 		Node call = createCallOrNew(Token.CALL, transform(node.getTarget()));
-		call.setLineno(node.getLineno());
+		call.setLineColumnNumber(node.getLineno(), node.getColumn());
 		TemplateLiteral templateLiteral = (TemplateLiteral) node.getTemplateLiteral();
 		List<AstNode> elems = templateLiteral.getElements();
 		// Node callSite = new Node(Token.TEMPLATE_LITERAL_CALL);
@@ -1175,7 +1180,7 @@ public final class IRFactory extends Parser {
 	private Node transformReturn(ReturnStatement node) {
 		AstNode rv = node.getReturnValue();
 		Node value = rv == null ? null : transform(rv);
-		return rv == null ? new Node(Token.RETURN, node.getLineno()) : new Node(Token.RETURN, value, node.getLineno());
+		return rv == null ? new Node(Token.RETURN, node.getLineno(), 0) : new Node(Token.RETURN, value, node.getLineno(), 0);
 	}
 
 	private Node transformScript(ScriptNode node) {
@@ -1196,7 +1201,9 @@ public final class IRFactory extends Parser {
 	}
 
 	private Node transformString(StringLiteral node) {
-		return Node.newString(node.getValue());
+        Node stringNode = Node.newString(node.getValue());
+        stringNode.setLineColumnNumber(node.getLineno(), node.getColumn());
+        return stringNode;
 	}
 
 	private Node transformSwitch(SwitchStatement node) {
@@ -1242,7 +1249,7 @@ public final class IRFactory extends Parser {
 		Node switchExpr = transform(node.getExpression());
 		node.addChildToBack(switchExpr);
 
-		Node block = new Node(Token.BLOCK, node, node.getLineno());
+        Node block = new Node(Token.BLOCK, node, node.getLineno(), node.getColumn());
 
 		for (SwitchCase sc : node.getCases()) {
 			AstNode expr = sc.getExpression();
@@ -1267,7 +1274,10 @@ public final class IRFactory extends Parser {
 
 	private Node transformThrow(ThrowStatement node) {
 		Node value = transform(node.getExpression());
-		return new Node(Token.THROW, value, node.getLineno());
+        value.setLineColumnNumber(node.getLineno(), node.getColumn());
+        Node nx = new Node(Token.THROW, value);
+        nx.setLineColumnNumber(node.getLineno(), node.getColumn());
+        return nx;
 	}
 
 	private Node transformTry(TryStatement node) {
@@ -1293,7 +1303,7 @@ public final class IRFactory extends Parser {
 		if (node.getFinallyBlock() != null) {
 			finallyBlock = transform(node.getFinallyBlock());
 		}
-		return createTryCatchFinally(tryBlock, catchBlocks, finallyBlock, node.getLineno());
+		return createTryCatchFinally(tryBlock, catchBlocks, finallyBlock, node.getLineno(), node.getColumn());
 	}
 
 	private Node transformUnary(UnaryExpression node) {
@@ -1372,9 +1382,9 @@ public final class IRFactory extends Parser {
 	private Node transformYield(Yield node) {
 		Node kid = node.getValue() == null ? null : transform(node.getValue());
 		if (kid != null) {
-			return new Node(node.getType(), kid, node.getLineno());
+			return new Node(node.getType(), kid, node.getLineno(), 0);
 		}
-		return new Node(node.getType(), node.getLineno());
+		return new Node(node.getType(), node.getLineno(), 0);
 	}
 
 	/**
@@ -1390,7 +1400,7 @@ public final class IRFactory extends Parser {
 		if (catchCond == null) {
 			catchCond = new Node(Token.EMPTY);
 		}
-		return new Node(Token.CATCH, createName(varName), catchCond, stmts, lineno);
+		return new Node(Token.CATCH, createName(varName), catchCond, stmts, lineno, 0);
 	}
 
 	/**
@@ -1399,7 +1409,7 @@ public final class IRFactory extends Parser {
 	 * to finish loop generation.
 	 */
 	private Scope createLoopNode(Node loopLabel, int lineno) {
-		Scope result = createScopeNode(Token.LOOP, lineno);
+		Scope result = createScopeNode(Token.LOOP, lineno, 0);
 		if (loopLabel != null) {
 			((Jump) loopLabel).setLoop(result);
 		}
@@ -1492,7 +1502,7 @@ public final class IRFactory extends Parser {
 	 * <p>
 	 * ... and a goto to GOTO around these handlers.
 	 */
-	private Node createTryCatchFinally(Node tryBlock, Node catchBlocks, Node finallyBlock, int lineno) {
+	private Node createTryCatchFinally(Node tryBlock, Node catchBlocks, Node finallyBlock, int lineno, int column) {
 		boolean hasFinally = (finallyBlock != null) && (finallyBlock.getType() != Token.BLOCK || finallyBlock.hasChildren());
 
 		// short circuit
@@ -1509,7 +1519,8 @@ public final class IRFactory extends Parser {
 		}
 
 		Node handlerBlock = new Node(Token.LOCAL_BLOCK);
-		Jump pn = new Jump(Token.TRY, tryBlock, lineno);
+        Jump pn = new Jump(Token.TRY, tryBlock);
+        pn.setLineColumnNumber(lineno, column);
 		pn.putProp(Node.LOCAL_BLOCK_PROP, handlerBlock);
 
 		if (hasCatch) {
@@ -1578,7 +1589,7 @@ public final class IRFactory extends Parser {
 			boolean hasDefault = false;
 			int scopeIndex = 0;
 			while (cb != null) {
-				int catchLineNo = cb.getLineno();
+                int catchLineno = cb.getLineno(), catchColumn = cb.getColumn();
 
 				Node name = cb.getFirstChild();
 				Node cond = name.getNext();
@@ -1600,7 +1611,7 @@ public final class IRFactory extends Parser {
 					condStmt = catchStatement;
 					hasDefault = true;
 				} else {
-					condStmt = createIf(cond, catchStatement, null, catchLineNo);
+                    condStmt = createIf(cond, catchStatement, null, catchLineno, catchColumn);
 				}
 
 				// Generate code to create the scope object and store
@@ -1611,7 +1622,7 @@ public final class IRFactory extends Parser {
 				catchScopeBlock.addChildToBack(catchScope);
 
 				// Add with statement based on catch scope object
-				catchScopeBlock.addChildToBack(createWith(createUseLocal(catchScopeBlock), condStmt, catchLineNo));
+				catchScopeBlock.addChildToBack(createWith(createUseLocal(catchScopeBlock), condStmt, catchLineno));
 
 				// move to next cb
 				cb = cb.getNext();
@@ -1652,9 +1663,9 @@ public final class IRFactory extends Parser {
 
 	private Node createWith(Node obj, Node body, int lineno) {
 		setRequiresActivation();
-		Node result = new Node(Token.BLOCK, lineno);
+		Node result = new Node(Token.BLOCK, lineno, 0);
 		result.addChildToBack(new Node(Token.ENTERWITH, obj));
-		Node bodyNode = new Node(Token.WITH, body, lineno);
+		Node bodyNode = new Node(Token.WITH, body, lineno, 0);
 		result.addChildrenToBack(bodyNode);
 		result.addChildToBack(new Node(Token.LEAVEWITH));
 		return result;

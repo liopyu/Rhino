@@ -96,7 +96,7 @@ public class ExpressionStatement extends AstNode {
 		assertNotNull(expression);
 		expr = expression;
 		expression.setParent(this);
-		setLineno(expression.getLineno());
+        setLineColumnNumber(expression.getLineno(), expr.getColumn());
 	}
 
 	/**
