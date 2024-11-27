@@ -93,7 +93,8 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 	private static final int Id_at = 52;
 	private static final int Id_isWellFormed = 53;
 	private static final int Id_toWellFormed = 54;
-	private static final int MAX_PROTOTYPE_ID = Id_toWellFormed;
+	private static final int Id_matchAll = 55;
+	private static final int MAX_PROTOTYPE_ID = Id_matchAll;
 	private static final int ConstructorId_charAt = -Id_charAt;
 	private static final int ConstructorId_charCodeAt = -Id_charCodeAt;
 	private static final int ConstructorId_indexOf = -Id_indexOf;
@@ -672,6 +673,10 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 				arity = 1;
 				s = "match";
 			}
+			case Id_matchAll -> {
+				arity = 1;
+				s = "matchAll";
+			}
 			case Id_search -> {
 				arity = 1;
 				s = "search";
@@ -1195,6 +1200,42 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 				case SymbolId_iterator:
 					return new NativeStringIterator(cx, scope, ScriptRuntimeES6.requireObjectCoercible(cx, thisObj, f));
 
+				case Id_matchAll: {
+					// See ECMAScript spec 22.1.3.14
+					Object o = ScriptRuntimeES6.requireObjectCoercible(cx, thisObj, f);
+					Object regexp = args.length > 0 ? args[0] : Undefined.INSTANCE;
+					RegExp regExpProxy = cx.getRegExp();
+					if (regexp != null && !Undefined.isUndefined(regexp)) {
+						boolean isRegExp = regexp instanceof Scriptable && regExpProxy.isRegExp((Scriptable) regexp);
+						if (isRegExp) {
+							Object flags = ScriptRuntime.getObjectProp(cx, scope, regexp, "flags");
+							ScriptRuntimeES6.requireObjectCoercible(cx, flags, f);
+							String flagsStr = ScriptRuntime.toString(cx, flags);
+							if (!flagsStr.contains("g")) {
+								throw ScriptRuntime.typeError0(cx, "msg.str.match.all.no.global.flag");
+							}
+						}
+
+						Object matcher = ScriptRuntime.getObjectElem(cx, scope, regexp, SymbolKey.MATCH_ALL);
+						if (matcher != null && !Undefined.isUndefined(matcher)) {
+							if (!(matcher instanceof Callable)) {
+								throw ScriptRuntime.notFunctionError(cx, regexp, matcher, SymbolKey.MATCH_ALL.getName());
+							}
+							return ((Callable) matcher).call(cx, scope, ScriptRuntime.toObject(cx, scope, regexp), new Object[]{o});
+						}
+					}
+
+					String s = ScriptRuntime.toString(cx, o);
+					String regexpToString = Undefined.isUndefined(regexp) ? "" : ScriptRuntime.toString(cx, regexp);
+					Object compiledRegExp = regExpProxy.compileRegExp(cx, regexpToString, "g");
+					Scriptable rx = regExpProxy.wrapRegExp(cx, scope, compiledRegExp);
+
+					Object method = ScriptRuntime.getObjectElem(cx, scope, rx, SymbolKey.MATCH_ALL);
+					if (!(method instanceof Callable)) {
+						throw ScriptRuntime.notFunctionError(cx, rx, method, SymbolKey.MATCH_ALL.getName());
+					}
+					return ((Callable) method).call(cx, scope, rx, new Object[]{s});
+				}
 			}
 			throw new IllegalArgumentException("String.prototype has no method: " + f.getFunctionName());
 		}
@@ -1332,6 +1373,7 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 			case "equals" -> Id_equals;
 			case "equalsIgnoreCase" -> Id_equalsIgnoreCase;
 			case "match" -> Id_match;
+			case "matchAll" -> Id_matchAll;
 			case "search" -> Id_search;
 			case "replace" -> Id_replace;
 			case "replaceAll" -> Id_replaceAll;

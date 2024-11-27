@@ -10,7 +10,7 @@ import java.util.Map;
  *
  * @see <a href="https://262.ecma-international.org/11.0/#sec-operations-on-objects">Abstract Operations - Operations on Objects</a>
  */
-class AbstractEcmaObjectOperations {
+public class AbstractEcmaObjectOperations {
 	enum INTEGRITY_LEVEL {
 		FROZEN,
 		SEALED

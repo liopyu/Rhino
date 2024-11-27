@@ -8,6 +8,7 @@ package dev.latvian.mods.rhino;
 
 import dev.latvian.mods.rhino.ast.FunctionNode;
 import dev.latvian.mods.rhino.regexp.NativeRegExp;
+import dev.latvian.mods.rhino.regexp.NativeRegExpStringIterator;
 import dev.latvian.mods.rhino.regexp.RegExp;
 import dev.latvian.mods.rhino.util.ClassVisibilityContext;
 import dev.latvian.mods.rhino.util.DefaultValueTypeHint;
@@ -230,6 +231,7 @@ public class ScriptRuntime {
 		NativeStringIterator.init(scope, sealed, cx);
 
 		NativeRegExp.init(cx, scope, sealed);
+		NativeRegExpStringIterator.init(scope, sealed, cx);
 
 		NativeSymbol.init(cx, scope, sealed);
 		NativeCollectionIterator.init(scope, NativeSet.ITERATOR_TAG, sealed, cx);
@@ -1038,6 +1040,30 @@ public class ScriptRuntime {
 		return (long) Math.min(len, NativeNumber.MAX_SAFE_INTEGER);
 	}
 
+	public static long toLength(Context cx, Object value) {
+		double len = toInteger(cx, value);
+		if (len <= 0.0) {
+			return 0;
+		}
+		return (long) Math.min(len, NativeNumber.MAX_SAFE_INTEGER);
+	}
+
+	/** Implements the abstract operation AdvanceStringIndex. See ECMAScript spec 22.2.7.3 */
+	public static long advanceStringIndex(String string, long index, boolean unicode) {
+		if (index >= NativeNumber.MAX_SAFE_INTEGER) {
+			Kit.codeBug();
+		}
+		if (!unicode) {
+			return index + 1;
+		}
+		int length = string.length();
+		if (index + 1 > length) {
+			return index + 1;
+		}
+		int cp = string.codePointAt((int) index);
+		return index + Character.charCount(cp);
+	}
+
 	/**
 	 * See ECMA 9.5.
 	 */
@@ -1084,7 +1110,7 @@ public class ScriptRuntime {
 		return ScriptableObject.getProperty(scope, id, cx);
 	}
 
-	static Function getExistingCtor(Context cx, Scriptable scope, String constructorName) {
+	public static Function getExistingCtor(Context cx, Scriptable scope, String constructorName) {
 		Object ctorVal = ScriptableObject.getProperty(scope, constructorName, cx);
 		if (ctorVal instanceof Function) {
 			return (Function) ctorVal;

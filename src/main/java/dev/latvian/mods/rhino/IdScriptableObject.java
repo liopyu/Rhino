@@ -318,15 +318,19 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 	 *
 	 * @throws EcmaError if the cast failed.
 	 */
-	@SuppressWarnings("unchecked")
 	protected static <T> T ensureType(Object obj, Class<T> clazz, IdFunctionObject f, Context cx) {
+		return ensureType(obj, clazz, f.getFunctionName(), cx);
+	}
+
+	@SuppressWarnings("unchecked")
+	protected static <T> T ensureType(Object obj, Class<T> clazz, String functionName, Context cx) {
 		if (clazz.isInstance(obj)) {
 			return (T) obj;
 		}
 		if (obj == null) {
-			throw ScriptRuntime.typeError3(cx, "msg.incompat.call.details", f.getFunctionName(), "null", clazz.getName());
+			throw ScriptRuntime.typeError3(cx, "msg.incompat.call.details", functionName, "null", clazz.getName());
 		}
-		throw ScriptRuntime.typeError3(cx, "msg.incompat.call.details", f.getFunctionName(), obj.getClass().getName(), clazz.getName());
+		throw ScriptRuntime.typeError3(cx, "msg.incompat.call.details", functionName, obj.getClass().getName(), clazz.getName());
 	}
 
 	private transient PrototypeValues prototypeValues;
