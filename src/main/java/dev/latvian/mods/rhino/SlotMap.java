@@ -17,7 +17,12 @@ package dev.latvian.mods.rhino;
  * resulted in substantial performance regressions so we are doing the best that we can.
  */
 
-public interface SlotMap extends Iterable<ScriptableObject.Slot> {
+public interface SlotMap extends Iterable<Slot> {
+
+	@FunctionalInterface
+	interface SlotComputer<S extends Slot> {
+		S compute(Object key, int index, Slot existing);
+	}
 
 	/**
 	 * Return the size of the map.
@@ -31,26 +36,39 @@ public interface SlotMap extends Iterable<ScriptableObject.Slot> {
 
 	/**
 	 * Return the Slot that matches EITHER "key" or "index". (It will use "key"
-	 * if it is not null, and otherwise "index". "accessType" is one of the
-	 * constants defined in ScriptableObject.
+	 * if it is not null, and otherwise "index".) If no slot exists, then create a
+	 * default (plain) Slot class with the given attributes.
+	 *
+	 * @param key The key for the slot, which should be a String or a Symbol.
+	 * @param index if key is zero, then this will be used as the key instead.
+	 * @param attributes the attributes to be set on the slot if a new slot is created. Existing
+	 *     slots will not be modified.
+	 * @return a Slot, which will be created anew if no such slot exists.
 	 */
-	ScriptableObject.Slot get(Object key, int index, ScriptableObject.SlotAccess accessType);
+	Slot modify(Object key, int index, int attributes);
 
 	/**
-	 * This is an optimization that is the same as get with an accessType of SLOT_QUERY.
-	 * It should be used instead of SLOT_QUERY because it is more efficient.
+	 * Retrieve the slot at EITHER key or index, or return null if the slot cannot be found.
+	 *
+	 * @param key The key for the slot, which should be a String or a Symbol.
+	 * @param index if key is zero, then this will be used as the key instead.
+	 * @return either the Slot that matched the key and index, or null
 	 */
-	ScriptableObject.Slot query(Object key, int index);
+	Slot query(Object key, int index);
+
+	/**
+	 * Replace the value of key with the slot computed by the "compute" method. If "compute"
+	 * throws an exception, make no change. If "compute" returns null, remove the mapping,
+	 * otherwise, replace any existing mapping with the result of "compute", and create a new
+	 * mapping if none exists. This is equivalent to the "compute" method on the Map interface,
+	 * which simplifies code and is more efficient than making multiple calls to this interface.
+	 * In order to allow use of multiple Slot subclasses, this function is templatized.
+	 */
+	<S extends Slot> S compute(Object key, int index, SlotComputer<S> compute);
 
 	/**
 	 * Insert a new slot to the map. Both "name" and "indexOrHash" must be populated.
-	 * Note that ScriptableObject generally adds slots via the "get" method.
+	 * Note that ScriptableObject generally adds slots via the "modify" method.
 	 */
-	void addSlot(ScriptableObject.Slot newSlot);
-
-	/**
-	 * Remove the slot at either "key" or "index".
-	 */
-	void remove(Object key, int index, Context cx);
+	void add(Slot newSlot);
 }
-

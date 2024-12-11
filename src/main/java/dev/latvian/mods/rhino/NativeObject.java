@@ -347,9 +347,9 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 				ScriptRuntime.StringIdOrIndex s = ScriptRuntime.toStringIdOrIndex(cx, args[0]);
 				int index = s.stringId != null ? 0 : s.index;
 				boolean isSetter = (id == Id___lookupSetter__);
-				Object gs;
+				Function gs;
 				for (; ; ) {
-					gs = so.getGetterOrSetter(s.stringId, index, isSetter);
+					gs = so.getGetterOrSetter(cx, s.stringId, index, this, isSetter);
 					if (gs != null) {
 						break;
 					}
@@ -366,9 +366,6 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 					}
 				}
 				if (gs != null) {
-					if (gs instanceof MemberBox mb) {
-						return isSetter ? mb.asSetterFunction(cx, s.stringId, this) : mb.asGetterFunction(cx, s.stringId, this);
-					}
 					return gs;
 				}
 			}

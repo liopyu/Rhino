@@ -115,6 +115,16 @@ public final class MemberBox {
 		return getName();
 	}
 
+	boolean isSameGetterFunction(Context cx, Object function) {
+		var f = asGetterFunction == null ? Undefined.INSTANCE : asGetterFunction;
+		return ScriptRuntime.shallowEq(cx, function, f);
+	}
+
+	boolean isSameSetterFunction(Context cx, Object function) {
+		var f = asSetterFunction == null ? Undefined.INSTANCE : asSetterFunction;
+		return ScriptRuntime.shallowEq(cx, function, f);
+	}
+
 	/**
 	 * Function returned by calls to __lookupGetter__. Note: scope is the scriptable this function
 	 * is related to; therefore this function is constant for this member box, so we can cache it.

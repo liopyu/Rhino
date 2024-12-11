@@ -6,6 +6,8 @@
 
 package dev.latvian.mods.rhino;
 
+import java.util.function.BiConsumer;
+
 /**
  * This class implements a JavaScript function that may be used as a constructor by delegating to an
  * interface that can be easily implemented as a lambda. The LambdaFunction class may be used to add
@@ -130,6 +132,26 @@ public class LambdaConstructor extends LambdaFunction {
 	public void definePrototypeProperty(Context cx, Symbol key, Object value, int attributes) {
 		ScriptableObject proto = getPrototypeScriptable(cx);
 		proto.defineProperty(cx, key, value, attributes);
+	}
+
+	/**
+	 * Define a property on the prototype of this constructor that is implemented using a lambda
+	 * getter, given the actual receiving object. See {@link
+	 * ScriptableObject#defineProperty(Context, String, java.util.function.Function, BiConsumer, int)}.
+	 */
+	public void definePrototypeProperty(Context cx, String name, java.util.function.Function<Scriptable, Object> getter, int attributes) {
+		ScriptableObject proto = getPrototypeScriptable(cx);
+		proto.defineProperty(cx, name, getter, (BiConsumer<Scriptable, Object>) null, attributes);
+	}
+
+	/**
+	 * Define a property on the prototype of this constructor that is implemented using lambda
+	 * getter and setter functions, given the actual receiving object. See {@link
+	 * ScriptableObject#defineProperty(Context, String, java.util.function.Function, BiConsumer, int)}.
+	 */
+	public void definePrototypeProperty(Context cx, String name, java.util.function.Function<Scriptable, Object> getter, BiConsumer<Scriptable, Object> setter, int attributes) {
+		ScriptableObject proto = getPrototypeScriptable(cx);
+		proto.defineProperty(cx, name, getter, setter, attributes);
 	}
 
 	/**

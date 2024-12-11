@@ -855,8 +855,8 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 					delete(cx, id); // it will be replaced with a slot
 				} else {
 					checkPropertyDefinition(cx, desc);
-					ScriptableObject current = getOwnPropertyDescriptor(cx, key);
-					checkPropertyChange(cx, name, current, desc);
+					var slot = queryOrFakeSlot(cx, key);
+					checkPropertyChangeForSlot(cx, name, slot, desc);
 					int attr = (info >>> 16);
 					Object value = getProperty(desc, "value", cx);
 					if (value != NOT_FOUND && ((attr & READONLY) == 0 || (attr & PERMANENT) == 0)) {
@@ -865,7 +865,7 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 							setInstanceIdValue(id, value, cx);
 						}
 					}
-					attr = applyDescriptorToAttributeBitset(cx, attr, desc);
+					attr = applyDescriptorToAttributeBitset(cx, attr, getProperty(desc, "enumerable", cx), getProperty(desc, "writable", cx), getProperty(desc, "configurable", cx));
 					setAttributes(cx, name, attr);
 					return;
 				}
@@ -877,8 +877,8 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 						prototypeValues.delete(id, cx); // it will be replaced with a slot
 					} else {
 						checkPropertyDefinition(cx, desc);
-						ScriptableObject current = getOwnPropertyDescriptor(cx, key);
-						checkPropertyChange(cx, name, current, desc);
+						var slot = queryOrFakeSlot(cx, key);
+						checkPropertyChangeForSlot(cx, name, slot, desc);
 						int attr = prototypeValues.getAttributes(id, cx);
 						Object value = getProperty(desc, "value", cx);
 						if (value != NOT_FOUND && (attr & READONLY) == 0) {
@@ -887,7 +887,7 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 								prototypeValues.set(id, this, value, cx);
 							}
 						}
-						prototypeValues.setAttributes(id, applyDescriptorToAttributeBitset(cx, attr, desc), cx);
+						prototypeValues.setAttributes(id, applyDescriptorToAttributeBitset(cx, attr, getProperty(desc, "enumerable", cx), getProperty(desc, "writable", cx), getProperty(desc, "configurable", cx)), cx);
 
 						// Handle the regular slot that was created if this property was previously replaced
 						// with an accessor descriptor.
@@ -924,47 +924,69 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 	}
 
 	private ScriptableObject getBuiltInDescriptor(String name, Context cx) {
-		Object value = null;
-		int attr = EMPTY;
-
 		Scriptable scope = getParentScope();
 		if (scope == null) {
 			scope = this;
 		}
 
+		var slot = getBuiltInSlot(name, cx);
+		return slot == null ? null : buildDataDescriptor(scope, slot.value, slot.getAttributes(), cx);
+	}
+
+	private ScriptableObject getBuiltInDescriptor(Symbol key, Context cx) {
+		Scriptable scope = getParentScope();
+		if (scope == null) {
+			scope = this;
+		}
+
+		var slot = getBuiltInSlot(key, cx);
+		return slot == null ? null : buildDataDescriptor(scope, slot.value, slot.getAttributes(), cx);
+	}
+
+	private Slot queryOrFakeSlot(Context cx, Object id) {
+		var slot = querySlot(cx, id);
+		if (slot == null) {
+			if (id instanceof String name) {
+				return getBuiltInSlot(name, cx);
+			}
+
+			if (ScriptRuntime.isSymbol(id)) {
+				if (id instanceof SymbolKey symbolKey) {
+					return getBuiltInSlot(symbolKey, cx);
+				}
+
+				return getBuiltInSlot(((NativeSymbol) id).getKey(), cx);
+			}
+		}
+		return slot;
+	}
+
+	private Slot getBuiltInSlot(String name, Context cx) {
 		int info = findInstanceIdInfo(name, cx);
 		if (info != 0) {
 			int id = (info & 0xFFFF);
-			value = getInstanceIdValue(id, cx);
-			attr = (info >>> 16);
-			return buildDataDescriptor(scope, value, attr, cx);
+			var slot = new Slot(name, 0, (info >>> 16));
+			slot.value = getInstanceIdValue(id, cx);
+			return slot;
 		}
 		if (prototypeValues != null) {
 			int id = prototypeValues.findId(name);
 			if (id != 0) {
-				value = prototypeValues.get(id, cx);
-				attr = prototypeValues.getAttributes(id, cx);
-				return buildDataDescriptor(scope, value, attr, cx);
+				var slot = new Slot(name, 0, prototypeValues.getAttributes(id, cx));
+				slot.value = prototypeValues.get(id, cx);
+				return slot;
 			}
 		}
 		return null;
 	}
 
-	private ScriptableObject getBuiltInDescriptor(Symbol key, Context cx) {
-		Object value = null;
-		int attr = EMPTY;
-
-		Scriptable scope = getParentScope();
-		if (scope == null) {
-			scope = this;
-		}
-
+	private Slot getBuiltInSlot(Symbol key, Context cx) {
 		if (prototypeValues != null) {
 			int id = prototypeValues.findId(key);
 			if (id != 0) {
-				value = prototypeValues.get(id, cx);
-				attr = prototypeValues.getAttributes(id, cx);
-				return buildDataDescriptor(scope, value, attr, cx);
+				var slot = new Slot(key, 0, prototypeValues.getAttributes(id, cx));
+				slot.value = prototypeValues.get(id, cx);
+				return slot;
 			}
 		}
 		return null;
