@@ -33,6 +33,7 @@ import dev.latvian.mods.rhino.ast.FunctionCall;
 import dev.latvian.mods.rhino.ast.FunctionNode;
 import dev.latvian.mods.rhino.ast.GeneratorExpression;
 import dev.latvian.mods.rhino.ast.GeneratorExpressionLoop;
+import dev.latvian.mods.rhino.ast.GeneratorMethodDefinition;
 import dev.latvian.mods.rhino.ast.IdeErrorReporter;
 import dev.latvian.mods.rhino.ast.IfStatement;
 import dev.latvian.mods.rhino.ast.InfixExpression;
@@ -3321,6 +3322,9 @@ public class Parser {
                 if (pname instanceof Name || pname instanceof StringLiteral) {
                     // For complicated reasons, parsing a name does not advance the token
                     pname.setLineColumnNumber(lineNumber(), columnNumber());
+                } else if (pname instanceof GeneratorMethodDefinition) {
+                    // Same as above
+                    ((GeneratorMethodDefinition) pname).getMethodName().setLineColumnNumber(lineNumber(), columnNumber());
                 }
 
 				// This code path needs to handle both destructuring object
@@ -3362,13 +3366,16 @@ public class Parser {
 						propertyName = null;
 					} else {
 						propertyName = ts.getString();
-						ObjectProperty objectProp = methodDefinition(ppos, pname, entryKind);
+						ObjectProperty objectProp = methodDefinition(ppos, pname, entryKind, pname instanceof GeneratorMethodDefinition);
 						pname.setJsDocNode(jsdocNode);
 						elems.add(objectProp);
 					}
 				} else {
 					pname.setJsDocNode(jsdocNode);
 					elems.add(plainProperty(pname, tt));
+				}
+				if (pname instanceof GeneratorMethodDefinition && entryKind != METHOD_ENTRY) {
+					reportError("msg.bad.prop");
 				}
 			}
 
@@ -3444,6 +3451,16 @@ public class Parser {
 				pname.setLineColumnNumber(lineno, 0);
 				((ComputedPropertyKey) pname).setExpression(expr);
 			}
+			case Token.MUL -> {
+				int pos = ts.tokenBeg;
+				consumeToken();
+				int lineno = lineNumber();
+				int column = columnNumber();
+
+				AstNode methodName = objliteralProperty();
+				pname = new GeneratorMethodDefinition(pos, ts.tokenEnd - pos, methodName);
+				pname.setLineColumnNumber(lineno, column);
+			}
 			default -> {
 				if (TokenStream.isKeyword(ts.getString(), inUseStrictDirective)) {
 					// convert keyword to property name, e.g. ({if: 1})
@@ -3482,8 +3499,8 @@ public class Parser {
 		return pn;
 	}
 
-	private ObjectProperty methodDefinition(int pos, AstNode propName, int entryKind) throws IOException {
-		FunctionNode fn = function(FunctionNode.FUNCTION_EXPRESSION);
+	private ObjectProperty methodDefinition(int pos, AstNode propName, int entryKind, boolean isGenerator) throws IOException {
+		FunctionNode fn = function(FunctionNode.FUNCTION_EXPRESSION, isGenerator);
 		// We've already parsed the function name, so fn should be anonymous.
 		Name name = fn.getFunctionName();
 		if (name != null && name.length() != 0) {
@@ -3949,6 +3966,8 @@ public class Parser {
 			} else {
 				key = (Object) Double.valueOf(n);
 			}
+		} else if (id instanceof GeneratorMethodDefinition) {
+			key = getPropKey(((GeneratorMethodDefinition) id).getMethodName());
 		} else {
 			key = null; // Filled later
 		}

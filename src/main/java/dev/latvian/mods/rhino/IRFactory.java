@@ -29,6 +29,7 @@ import dev.latvian.mods.rhino.ast.FunctionCall;
 import dev.latvian.mods.rhino.ast.FunctionNode;
 import dev.latvian.mods.rhino.ast.GeneratorExpression;
 import dev.latvian.mods.rhino.ast.GeneratorExpressionLoop;
+import dev.latvian.mods.rhino.ast.GeneratorMethodDefinition;
 import dev.latvian.mods.rhino.ast.IfStatement;
 import dev.latvian.mods.rhino.ast.InfixExpression;
 import dev.latvian.mods.rhino.ast.Jump;
@@ -630,6 +631,8 @@ public final class IRFactory extends Parser {
 					yield transformLabeledStatement(n);
 				} else if (node instanceof LetNode n) {
 					yield transformLetNode(n);
+				} else if (node instanceof GeneratorMethodDefinition n) {
+					yield transformGeneratorMethodDefinition(n);
 				}
 
 				throw new IllegalArgumentException("Can't transform: " + node + " (" + node.getClass().getName() + ")");
@@ -1170,6 +1173,11 @@ public final class IRFactory extends Parser {
 	private Node transformComputedPropertyKey(ComputedPropertyKey node) {
 		Node transformedExpression = transform(node.getExpression());
 		return new Node(node.type, transformedExpression);
+	}
+
+	private Node transformGeneratorMethodDefinition(GeneratorMethodDefinition node) {
+		// Unwrap the "temporary" AST node
+		return transform(node.getMethodName());
 	}
 
 	private Node transformPropertyGet(PropertyGet node) {
