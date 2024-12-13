@@ -3087,7 +3087,9 @@ public class ScriptRuntime {
 				Callable getterOrSetter = (Callable) value;
 				boolean isSetter = getterSetter == 1;
 				Integer indexObj = id instanceof Integer ? (Integer) id : null;
-				String key = indexObj == null ? ScriptRuntime.toString(cx, id) : null;
+				Object key = indexObj != null
+						? null
+						: (id instanceof Symbol ? id : ScriptRuntime.toString(cx, id));
 				so.setGetterOrSetter(cx, key, indexObj == null ? 0 : indexObj, getterOrSetter, isSetter);
 			}
 		}

@@ -1283,13 +1283,13 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 	/**
 	 * XXX: write docs.
 	 */
-	public void setGetterOrSetter(Context cx, String name, int index, Callable getterOrSetter, boolean isSetter) {
+	public void setGetterOrSetter(Context cx, Object name, int index, Callable getterOrSetter, boolean isSetter) {
 		setGetterOrSetter(cx, name, index, getterOrSetter, isSetter, false);
 	}
 
-	private void setGetterOrSetter(Context cx, String name, int index, Callable getterOrSetter, boolean isSetter, boolean force) {
+	private void setGetterOrSetter(Context cx, Object name, int index, Callable getterOrSetter, boolean isSetter, boolean force) {
 		if (name != null && index != 0) {
-			throw new IllegalArgumentException(name);
+			throw new IllegalArgumentException(name.toString());
 		}
 
 		if (!force) {
