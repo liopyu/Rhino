@@ -1648,7 +1648,7 @@ public class Context {
 					return ScriptRuntime.toString(this, from);
 				} else if (target == TypeInfo.OBJECT) {
 					return coerceToNumber(TypeInfo.DOUBLE, from);
-				} else if ((target.isPrimitive() && !target.isBoolean()) || ScriptRuntime.NumberClass.isAssignableFrom(target.asClass())) {
+				} else if ((target.isPrimitive() && !target.isBoolean()) || ScriptRuntime.NumberClass.isAssignableFrom(target.asClass()) || target.isCharacter()) {
 					return coerceToNumber(target, from);
 				} else {
 					return internalJsToJavaLast(from, target);
