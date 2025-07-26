@@ -38,6 +38,7 @@ public class NativePromise extends ScriptableObject {
 		constructor.defineConstructorMethod(cx, scope, "allSettled", 1, NativePromise::allSettled, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "race", 1, NativePromise::race, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "any", 1, NativePromise::any, DONTENUM, DONTENUM | READONLY);
+		constructor.defineConstructorMethod(cx, scope, "withResolvers", 0, NativePromise::withResolvers, DONTENUM, DONTENUM | READONLY);
 
 		ScriptableObject speciesDescriptor = (ScriptableObject) cx.newObject(scope);
 		ScriptableObject.putProperty(speciesDescriptor, "enumerable", false, cx);
@@ -250,6 +251,24 @@ public class NativePromise extends ScriptableObject {
 			Callable thenFunc = ScriptRuntime.getPropFunctionAndThis(cx, scope, nextPromise, "then");
 			thenFunc.call(cx, scope, cx.lastStoredScriptable(), new Object[]{cap.resolve, cap.reject});
 		}
+	}
+
+	// Promise.withResolvers
+	private static Object withResolvers(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+		if (!ScriptRuntime.isObject(thisObj)) {
+			throw ScriptRuntime.typeError1(cx, "msg.arg.not.object", ScriptRuntime.typeof(cx, thisObj).toString());
+		}
+
+		// Create a capability which properly constructs a promise with resolve/reject functions
+		Capability cap = new Capability(cx, scope, thisObj);
+
+		// Create the result object with promise, resolve, and reject properties
+		Scriptable result = cx.newObject(scope);
+		result.put(cx, "promise", result, cap.promise);
+		result.put(cx, "resolve", result, cap.resolve);
+		result.put(cx, "reject", result, cap.reject);
+
+		return result;
 	}
 
 	// Promise.prototype.then
