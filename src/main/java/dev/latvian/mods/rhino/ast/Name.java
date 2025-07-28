@@ -144,4 +144,10 @@ public class Name extends AstNode {
 	public String toString() {
 		return identifier;
 	}
+
+	public Name withPrefix(String prefix) {
+		Name clone = new Name(this.getPosition(), this.getLength(), prefix + this.identifier);
+		clone.setLineno(this.getLineno());
+		return clone;
+	}
 }

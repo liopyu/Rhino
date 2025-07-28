@@ -63,6 +63,14 @@ public class ArrowFunction extends BaseFunction {
 		return 0;
 	}
 
+    @Override
+    public String getFunctionName() {
+        if (targetFunction instanceof BaseFunction) {
+            return ((BaseFunction) targetFunction).getFunctionName();
+        }
+        return super.getFunctionName();
+    }
+
 	@Override
 	public int getArity() {
 		return getLength();

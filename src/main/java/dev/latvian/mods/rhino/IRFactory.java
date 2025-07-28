@@ -13,6 +13,7 @@ import dev.latvian.mods.rhino.ast.Assignment;
 import dev.latvian.mods.rhino.ast.AstNode;
 import dev.latvian.mods.rhino.ast.AstRoot;
 import dev.latvian.mods.rhino.ast.AstSymbol;
+import dev.latvian.mods.rhino.ast.FunctionNode;
 import dev.latvian.mods.rhino.ast.Block;
 import dev.latvian.mods.rhino.ast.CatchClause;
 import dev.latvian.mods.rhino.ast.ConditionalExpression;
@@ -758,14 +759,21 @@ public final class IRFactory extends Parser {
 	}
 
 	private Node transformAssignment(Assignment node) {
-		AstNode left = removeParens(node.getLeft());
+		AstNode originalLeft = node.getLeft();
+		AstNode left = removeParens(originalLeft);
+		boolean shouldTryToInferName = (originalLeft == left);
 		Node target;
 		if (isDestructuring(left)) {
 			target = left;
+			shouldTryToInferName = false;
 		} else {
 			target = transform(left);
 		}
-		return createAssignment(node.getType(), target, transform(node.getRight()));
+		Node transformedRight = transform(node.getRight());
+		if (shouldTryToInferName) {
+			inferNameIfMissing(node.getLeft(), transformedRight, null);
+		}
+		return createAssignment(node.getType(), target, transformedRight);
 	}
 
 	private Node transformBlock(AstNode node) {
@@ -1067,9 +1075,20 @@ public final class IRFactory extends Parser {
 			int size = elems.size(), i = 0;
 			properties = new Object[size];
 			for (ObjectProperty prop : elems) {
-				properties[i++] = getPropKey(prop.getLeft());
+				Object propKey = getPropKey(prop.getLeft());
+				properties[i++] = propKey;
+
+				Name inferrableName = null;
+				if (propKey instanceof String || propKey instanceof Integer) {
+					inferrableName = new Name(0, java.util.Objects.toString(propKey));
+					inferrableName.setLineno(prop.getLeft().getLineno());
+				}
 
 				Node right = transform(prop.getRight());
+				if (inferrableName != null) {
+					inferNameIfMissing(inferrableName, right, prop.isGetterMethod() ? "get " : prop.isSetterMethod() ? "set " : null);
+				}
+
 				if (prop.isGetterMethod()) {
 					right = createUnary(Token.GET, right);
 				} else if (prop.isSetterMethod()) {
@@ -1328,6 +1347,7 @@ public final class IRFactory extends Parser {
 					node.addChildToBack(d);
 				}
 			} else {
+				inferNameIfMissing(var.getTarget(), right, null);
 				if (right != null) {
 					left.addChildToBack(right);
 				}
@@ -1804,5 +1824,23 @@ public final class IRFactory extends Parser {
 	// Check if node is the target of a destructuring bind.
 	boolean isDestructuring(Node n) {
 		return n instanceof DestructuringForm && ((DestructuringForm) n).isDestructuring();
+	}
+
+	/** Infer function name if missing on rhs. */
+	private void inferNameIfMissing(Object left, Node right, String prefix) {
+		if (left instanceof Name name && right != null && right.type == Token.FUNCTION) {
+			if ("__proto__".equals(name.getIdentifier())) {
+				return;
+			}
+			int fnIndex = right.getExistingIntProp(Node.FUNCTION_PROP);
+			FunctionNode functionNode = currentScriptOrFn.getFunctionNode(fnIndex);
+			if (functionNode.getType() != 0 && functionNode.getFunctionName() == null) {
+				if (prefix != null) {
+					functionNode.setFunctionName(name.withPrefix(prefix));
+				} else {
+					functionNode.setFunctionName(name);
+				}
+			}
+		}
 	}
 }
