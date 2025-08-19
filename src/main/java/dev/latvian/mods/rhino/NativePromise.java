@@ -39,6 +39,7 @@ public class NativePromise extends ScriptableObject {
 		constructor.defineConstructorMethod(cx, scope, "race", 1, NativePromise::race, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "any", 1, NativePromise::any, DONTENUM, DONTENUM | READONLY);
 		constructor.defineConstructorMethod(cx, scope, "withResolvers", 0, NativePromise::withResolvers, DONTENUM, DONTENUM | READONLY);
+		constructor.defineConstructorMethod(cx, scope, "try", 1, NativePromise::promiseTry, DONTENUM, DONTENUM | READONLY);
 
 		ScriptableObject speciesDescriptor = (ScriptableObject) cx.newObject(scope);
 		ScriptableObject.putProperty(speciesDescriptor, "enumerable", false, cx);
@@ -269,6 +270,39 @@ public class NativePromise extends ScriptableObject {
 		result.put(cx, "reject", result, cap.reject);
 
 		return result;
+	}
+
+	// Promise.try
+	private static Object promiseTry(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+		if (!ScriptRuntime.isObject(thisObj)) {
+			throw ScriptRuntime.typeError1(cx, "msg.arg.not.object", ScriptRuntime.typeof(cx, thisObj).toString());
+		}
+
+		if (args.length < 1 || !(args[0] instanceof Callable)) {
+			throw ScriptRuntime.typeError0(cx, "msg.function.expected");
+		}
+
+		Callable func = (Callable) args[0];
+
+		// Create a new promise capability using the constructor
+		Capability cap = new Capability(cx, scope, thisObj);
+
+		// Prepare the arguments to pass to the function (all args after the function)
+		Object[] funcArgs = new Object[args.length - 1];
+		System.arraycopy(args, 1, funcArgs, 0, funcArgs.length);
+
+		try {
+			// Call the function synchronously
+			Object result = func.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, funcArgs);
+
+			// Resolve the promise with the result
+			cap.resolve.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{result});
+		} catch (RhinoException re) {
+			// If the function throws, reject the promise with the error
+			cap.reject.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{getErrorObject(cx, scope, re)});
+		}
+
+		return cap.promise;
 	}
 
 	// Promise.prototype.then
