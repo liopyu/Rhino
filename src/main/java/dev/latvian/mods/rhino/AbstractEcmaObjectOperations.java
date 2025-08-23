@@ -241,4 +241,24 @@ class AbstractEcmaObjectOperations {
 			base.put(cx, p, o, v);
 		}
 	}
+
+	/**
+	 * Set ( O, P, V, Throw)
+	 *
+	 * <p>https://262.ecma-international.org/12.0/#sec-set-o-p-v-throw
+	 */
+	static void put(Context cx, Scriptable o, Symbol p, Object v, boolean isThrow) {
+		Scriptable base = ScriptableObject.getBase(cx, o, p);
+		if (base == null) {
+			base = o;
+		}
+		if (base instanceof ScriptableObject so) {
+			if (so.putImpl(cx, p, 0, o, v, isThrow)) {
+				return;
+			}
+			ScriptableObject.ensureSymbolScriptable(o, cx).put(cx, p, o, v);
+		} else {
+			ScriptableObject.ensureSymbolScriptable(base, cx).put(cx, p, o, v);
+		}
+	}
 }

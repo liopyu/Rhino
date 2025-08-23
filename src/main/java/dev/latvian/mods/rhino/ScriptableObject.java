@@ -831,7 +831,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 		return obj;
 	}
 
-	private static Scriptable getBase(Context cx, Scriptable start, Symbol key) {
+	static Scriptable getBase(Context cx, Scriptable start, Symbol key) {
 		Scriptable obj = start;
 		do {
 			if (ensureSymbolScriptable(obj, cx).has(cx, key, start)) {

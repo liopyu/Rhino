@@ -630,18 +630,34 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 						continue;
 					}
 					Scriptable sourceObj = ScriptRuntime.toObject(cx, thisObj, args[i]);
-					Object[] ids = sourceObj.getIds(cx);
+					Object[] ids;
+					if (sourceObj instanceof ScriptableObject so) {
+						ids = so.getIds(cx, false, true);
+					} else {
+						ids = sourceObj.getIds(cx);
+					}
 					for (Object key : ids) {
 						if (key instanceof Integer intId) {
 							if (sourceObj.has(cx, intId, sourceObj) && isEnumerable(cx, intId, sourceObj)) {
 								Object val = sourceObj.get(cx, intId, sourceObj);
 								AbstractEcmaObjectOperations.put(cx, targetObj, intId, val, true);
 							}
-						} else {
-							String stringId = ScriptRuntime.toString(cx, key);
+						} else if (key instanceof String stringId) {
 							if (sourceObj.has(cx, stringId, sourceObj) && isEnumerable(cx, stringId, sourceObj)) {
 								Object val = sourceObj.get(cx, stringId, sourceObj);
 								AbstractEcmaObjectOperations.put(cx, targetObj, stringId, val, true);
+							}
+						}
+					}
+
+					// Separate Symbol pass — they must be copied after string properties.
+					if (sourceObj instanceof ScriptableObject sourceSO) {
+						for (Object key : ids) {
+							if (key instanceof Symbol sym) {
+								if (sourceSO.has(cx, sym, sourceObj) && isEnumerable(cx, sym, sourceObj)) {
+									Object val = sourceSO.get(cx, sym, sourceObj);
+									AbstractEcmaObjectOperations.put(cx, targetObj, sym, val, true);
+								}
 							}
 						}
 					}
@@ -960,6 +976,13 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 	private static boolean isEnumerable(Context cx, String key, Object obj) {
 		if (obj instanceof ScriptableObject so) {
 			return (so.getAttributes(cx, key) & DONTENUM) == 0;
+		}
+		return true;
+	}
+
+	private static boolean isEnumerable(Context cx, Symbol sym, Object obj) {
+		if (obj instanceof ScriptableObject so) {
+			return (so.getAttributes(cx, sym) & DONTENUM) == 0;
 		}
 		return true;
 	}
