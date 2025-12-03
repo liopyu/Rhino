@@ -1643,22 +1643,32 @@ public class Parser {
 					lp = ts.tokenBeg;
 				}
 
-				mustMatchToken(Token.NAME, "msg.bad.catchcond", true);
+				AstNode varName;
+				int tt = peekToken();
+				if (tt == Token.LB || tt == Token.LC) {
+					// Destructuring pattern
+					varName = destructuringPrimaryExpr();
+					markDestructuring(varName);
+				} else {
+					// Simple identifier
+					mustMatchToken(Token.NAME, "msg.bad.catchcond", true);
 
-				Name varName = createNameNode();
-				Comment jsdocNodeForName = getAndResetJsDoc();
-				if (jsdocNodeForName != null) {
-					varName.setJsDocNode(jsdocNodeForName);
-				}
-				String varNameString = varName.getIdentifier();
-				if (inUseStrictDirective) {
-					if ("eval".equals(varNameString) || "arguments".equals(varNameString)) {
-						reportError("msg.bad.id.strict", varNameString);
+					varName = createNameNode();
+					Comment jsdocNodeForName = getAndResetJsDoc();
+					if (jsdocNodeForName != null) {
+						varName.setJsDocNode(jsdocNodeForName);
+					}
+					String varNameString = ((Name) varName).getIdentifier();
+					if (inUseStrictDirective) {
+						if ("eval".equals(varNameString) || "arguments".equals(varNameString)) {
+							reportError("msg.bad.id.strict", varNameString);
+						}
 					}
 				}
 
 				AstNode catchCond = null;
-				if (matchToken(Token.IF, true)) {
+				// Non-standard extension: "catch (e if cond)" — only for Name varName
+				if (varName instanceof Name && matchToken(Token.IF, true)) {
 					guardPos = ts.tokenBeg;
 					catchCond = expr();
 				} else {

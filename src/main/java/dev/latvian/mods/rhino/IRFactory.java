@@ -1285,19 +1285,54 @@ public final class IRFactory extends Parser {
 
 		Node catchBlocks = new Block();
 		for (CatchClause cc : node.getCatchClauses()) {
-			String varName = cc.getVarName().getIdentifier();
+			AstNode varName = cc.getVarName();
+			String varNameStr;
+			Block catchBody = cc.getBody();
 
 			Node catchCond;
-			AstNode ccc = cc.getCatchCondition();
-			if (ccc != null) {
-				catchCond = transform(ccc);
-			} else {
+			if (varName instanceof Name) {
+				varNameStr = ((Name) varName).getIdentifier();
+
+				AstNode ccc = cc.getCatchCondition();
+				if (ccc != null) {
+					catchCond = transform(ccc);
+				} else {
+					catchCond = new EmptyExpression();
+				}
+			} else if (varName instanceof ArrayLiteral || varName instanceof ObjectLiteral) {
+				// Destructuring pattern. We basically replace:
+				//   catch ( {message} ) { body }
+				// into:
+				//   catch ( $tempname ) { let {message} = $tempname; body }
+
+				String tempVarName = currentScriptOrFn.getNextTempName();
+				varNameStr = tempVarName;
+
+				VariableDeclaration letStatement = new VariableDeclaration();
+				letStatement.setType(Token.LET);
+
+				VariableInitializer letVar = new VariableInitializer();
+				letStatement.addVariable(letVar);
+
+				// LHS: the destructuring declaration
+				letVar.setTarget(varName);
+
+				// RHS: the temp name
+				Name tempVarNameNode = new Name();
+				tempVarNameNode.setIdentifier(tempVarName);
+				letVar.setInitializer(tempVarNameNode);
+
+				// Prepend the destructuring "let" to the catch body
+				catchBody.addChildToFront(letStatement);
+
 				catchCond = new EmptyExpression();
+			} else {
+				throw new IllegalArgumentException("Unexpected catch parameter type: " + varName.getClass().getName());
 			}
 
-			Node body = transform(cc.getBody());
+			Node body = transform(catchBody);
 
-			catchBlocks.addChildToBack(createCatch(varName, catchCond, body, cc.getLineno()));
+			catchBlocks.addChildToBack(createCatch(varNameStr, catchCond, body, cc.getLineno()));
 		}
 		Node finallyBlock = null;
 		if (node.getFinallyBlock() != null) {

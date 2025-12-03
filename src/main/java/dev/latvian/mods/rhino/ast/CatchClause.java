@@ -17,7 +17,7 @@ import dev.latvian.mods.rhino.Token;
  */
 public class CatchClause extends AstNode {
 
-	private Name varName;
+	private AstNode varName;
 	private AstNode catchCondition;
 	private Block body;
 	private int ifPosition = -1;
@@ -44,7 +44,7 @@ public class CatchClause extends AstNode {
 	 *
 	 * @return catch variable
 	 */
-	public Name getVarName() {
+	public AstNode getVarName() {
 		return varName;
 	}
 
@@ -54,7 +54,7 @@ public class CatchClause extends AstNode {
 	 * @param varName catch variable
 	 * @throws IllegalArgumentException if varName is {@code null}
 	 */
-	public void setVarName(Name varName) {
+	public void setVarName(AstNode varName) {
 		assertNotNull(varName);
 		this.varName = varName;
 		varName.setParent(this);
