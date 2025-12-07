@@ -1479,6 +1479,16 @@ public class Parser {
 				inPos = ts.tokenBeg - forPos;
 				cond = expr();  // object over which we're iterating
 			} else {  // ordinary for-loop
+				// For ordinary for loops, destructuring declarations must have initializers
+				if (init instanceof VariableDeclaration) {
+					VariableDeclaration varDecl = (VariableDeclaration) init;
+					for (VariableInitializer vi : varDecl.getVariables()) {
+						if (vi.isDestructuring() && vi.getInitializer() == null) {
+							reportError("msg.destruct.assign.no.init");
+						}
+					}
+				}
+
 				mustMatchToken(Token.SEMI, "msg.no.semi.for", true);
 				if (peekToken() == Token.SEMI) {
 					// no loop condition
