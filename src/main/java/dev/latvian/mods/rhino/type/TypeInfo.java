@@ -89,6 +89,46 @@ public interface TypeInfo {
 		return this == info;
 	}
 
+	default boolean is(Class<?> c) {
+		return asClass() == c;
+	}
+
+	default boolean isNot(Class<?> c) {
+		return asClass() != c;
+	}
+
+	default boolean isAssignableFrom(TypeInfo other) {
+		return asClass().isAssignableFrom(other.asClass());
+	}
+
+	default boolean isInstance(Object o) {
+		return asClass().isInstance(o);
+	}
+
+	default boolean isObjectExact() {
+		return asClass() == Object.class;
+	}
+
+	default boolean isArray() {
+		return asClass().isArray();
+	}
+
+	default boolean isInterface() {
+		return asClass().isInterface();
+	}
+
+	default boolean isEnum() {
+		return asClass().isEnum();
+	}
+
+	default boolean isNumber() {
+		return Number.class.isAssignableFrom(asClass());
+	}
+
+	default boolean isString() {
+		return asClass() == String.class;
+	}
+
 	default boolean isPrimitive() {
 		return false;
 	}
