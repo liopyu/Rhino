@@ -46,8 +46,6 @@ public class RecordTypeInfo extends ClassTypeInfo implements TypeWrapperFactory<
 		}
 	}
 
-	static final Map<Class<?>, RecordTypeInfo> CACHE = new IdentityHashMap<>();
-
 	private Data data;
 	private JSObjectTypeInfo objectTypeInfo;
 	private JSFixedArrayTypeInfo arrayTypeInfo;

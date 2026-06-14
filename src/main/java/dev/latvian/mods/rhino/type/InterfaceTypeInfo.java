@@ -1,11 +1,6 @@
 package dev.latvian.mods.rhino.type;
 
-import java.util.IdentityHashMap;
-import java.util.Map;
-
 public class InterfaceTypeInfo extends ClassTypeInfo {
-	static final Map<Class<?>, InterfaceTypeInfo> CACHE = new IdentityHashMap<>();
-
 	private Boolean functional;
 
 	InterfaceTypeInfo(Class<?> type, Boolean functional) {

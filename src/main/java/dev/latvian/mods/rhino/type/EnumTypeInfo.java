@@ -5,15 +5,12 @@ import dev.latvian.mods.rhino.util.RemappedEnumConstant;
 import dev.latvian.mods.rhino.util.wrap.TypeWrapperFactory;
 
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class EnumTypeInfo extends ClassTypeInfo implements TypeWrapperFactory<Object> {
-	static final Map<Class<?>, EnumTypeInfo> CACHE = new IdentityHashMap<>();
-
 	public static String getName(Object e) {
 		if (e instanceof RemappedEnumConstant c) {
 			String s = c.getRemappedEnumConstantName();
