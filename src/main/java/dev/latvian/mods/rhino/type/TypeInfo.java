@@ -137,6 +137,17 @@ public interface TypeInfo {
 		return true;
 	}
 
+	/**
+	 * Returns one of {@link dev.latvian.mods.rhino.FunctionObject}'s {@code JAVA_*_TYPE}
+	 * constants for this type, used by reflective dispatch to pick a conversion strategy.
+	 * Equivalent to {@code FunctionObject.getTypeTag(asClass())}; provided as a default
+	 * method so callers that already hold a {@code TypeInfo} can skip the {@link #asClass()}
+	 * round-trip.
+	 */
+	default int getTypeTag() {
+		return dev.latvian.mods.rhino.FunctionObject.getTypeTag(asClass());
+	}
+
 	static TypeInfo of(Class<?> c) {
 		return TypeInfoFactory.GLOBAL.create(c);
 	}

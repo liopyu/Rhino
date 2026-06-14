@@ -217,11 +217,11 @@ public class FunctionObject extends BaseFunction {
 		}
 
 		if (member.isMethod()) {
-			Class<?> returnType = member.getReturnType().asClass();
-			if (returnType == Void.TYPE) {
+			var returnType = member.getReturnType();
+			if (returnType.isVoid()) {
 				hasVoidReturn = true;
 			} else {
-				returnTypeTag = getTypeTag(returnType);
+				returnTypeTag = returnType.getTypeTag();
 			}
 		} else {
 			Class<?> ctorType = member.executableInfo.getDeclaringClass().type;
