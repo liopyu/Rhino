@@ -197,9 +197,9 @@ class TokenStream {
 		return lineno;
 	}
 
-    public int getTokenStartLineno() {
-        return tokenStartLineno;
-    }
+	public int getTokenStartLineno() {
+		return tokenStartLineno;
+	}
 
 	final String getString() {
 		return string;
@@ -241,15 +241,15 @@ class TokenStream {
 			for (; ; ) {
 				c = getChar();
 				if (c == EOF_CHAR) {
-                    tokenStartLastLineEnd = lastLineEnd;
-                    tokenStartLineno = lineno;
+					tokenStartLastLineEnd = lastLineEnd;
+					tokenStartLineno = lineno;
 					tokenBeg = cursor - 1;
 					tokenEnd = cursor;
 					return Token.EOF;
 				} else if (c == '\n') {
 					dirtyLine = false;
-                    tokenStartLastLineEnd = lastLineEnd;
-                    tokenStartLineno = lineno;
+					tokenStartLastLineEnd = lastLineEnd;
+					tokenStartLineno = lineno;
 					tokenBeg = cursor - 1;
 					tokenEnd = cursor;
 					return Token.EOL;
@@ -262,8 +262,8 @@ class TokenStream {
 			}
 
 			// Assume the token will be 1 char - fixed up below.
-            tokenStartLastLineEnd = lastLineEnd;
-            tokenStartLineno = lineno;
+			tokenStartLastLineEnd = lastLineEnd;
+			tokenStartLineno = lineno;
 			tokenBeg = cursor - 1;
 			tokenEnd = cursor;
 
@@ -289,7 +289,7 @@ class TokenStream {
 					c = '\\';
 				}
 			} else {
-                identifierStart = Character.isUnicodeIdentifierStart(c) || c == '$' || c == '_';
+				identifierStart = Character.isUnicodeIdentifierStart(c) || c == '$' || c == '_';
 				if (identifierStart) {
 					stringBufferTop = 0;
 					addToString(c);
@@ -307,33 +307,33 @@ class TokenStream {
 						// escape sequence in an identifier, we can report
 						// an error here.
 						int escapeVal = 0;
-                        if (matchTemplateLiteralChar('{')) {
-                            for (; ; ) {
-                                c = getTemplateLiteralChar();
+						if (matchTemplateLiteralChar('{')) {
+							for (; ; ) {
+								c = getTemplateLiteralChar();
 
-                                if (c == '}') {
-                                    break;
-                                }
-                                escapeVal = Kit.xDigitToInt(c, escapeVal);
-                                if (escapeVal < 0) {
-                                    break;
-                                }
-                            }
+								if (c == '}') {
+									break;
+								}
+								escapeVal = Kit.xDigitToInt(c, escapeVal);
+								if (escapeVal < 0) {
+									break;
+								}
+							}
 
-                            if (escapeVal < 0 || escapeVal > 0x10FFFF) {
-                                parser.reportError("msg.invalid.escape");
+							if (escapeVal < 0 || escapeVal > 0x10FFFF) {
+								parser.reportError("msg.invalid.escape");
 								break;
 							}
-                        } else {
-                            for (int i = 0; i != 4; ++i) {
-                                c = getChar();
-                                escapeVal = Kit.xDigitToInt(c, escapeVal);
-                                // Next check takes care about c < 0 and bad escape
-                                if (escapeVal < 0) {
-                                    parser.reportError("msg.invalid.escape");
-                                    break;
-                                }
-                            }
+						} else {
+							for (int i = 0; i != 4; ++i) {
+								c = getChar();
+								escapeVal = Kit.xDigitToInt(c, escapeVal);
+								// Next check takes care about c < 0 and bad escape
+								if (escapeVal < 0) {
+									parser.reportError("msg.invalid.escape");
+									break;
+								}
+							}
 						}
 						if (escapeVal < 0) {
 							parser.addError("msg.invalid.escape");
@@ -636,14 +636,14 @@ class TokenStream {
 				return Token.STRING;
 			}
 
-            if (c == '#'
-                    && cursor == 1
-                    && peekChar() == '!'
-                    && !this.parser.calledByCompileFunction) {
-                // #! hashbang: only on the first line of a Script, no leading whitespace
-                skipLine();
-                return Token.COMMENT;
-            }
+			if (c == '#'
+				&& cursor == 1
+				&& peekChar() == '!'
+				&& !this.parser.calledByCompileFunction) {
+				// #! hashbang: only on the first line of a Script, no leading whitespace
+				skipLine();
+				return Token.COMMENT;
+			}
 
 			switch (c) {
 				case ';':
@@ -731,8 +731,8 @@ class TokenStream {
 					if (matchChar('!')) {
 						if (matchChar('-')) {
 							if (matchChar('-')) {
-                                tokenStartLastLineEnd = lastLineEnd;
-                                tokenStartLineno = lineno;
+								tokenStartLastLineEnd = lastLineEnd;
+								tokenStartLineno = lineno;
 								tokenBeg = cursor - 4;
 								skipLine();
 								commentType = Token.CommentType.HTML;
@@ -784,8 +784,8 @@ class TokenStream {
 					markCommentStart();
 					// is it a // comment?
 					if (matchChar('/')) {
-                        tokenStartLastLineEnd = lastLineEnd;
-                        tokenStartLineno = lineno;
+						tokenStartLastLineEnd = lastLineEnd;
+						tokenStartLineno = lineno;
 						tokenBeg = cursor - 2;
 						skipLine();
 						commentType = Token.CommentType.LINE;
@@ -794,8 +794,8 @@ class TokenStream {
 					// is it a /* or /** comment?
 					if (matchChar('*')) {
 						boolean lookForSlash = false;
-                        tokenStartLastLineEnd = lastLineEnd;
-                        tokenStartLineno = lineno;
+						tokenStartLastLineEnd = lastLineEnd;
+						tokenStartLineno = lineno;
 						tokenBeg = cursor - 2;
 						if (matchChar('*')) {
 							lookForSlash = true;
@@ -1164,19 +1164,19 @@ class TokenStream {
 
 	private void addToString(int c) {
 		int N = stringBufferTop;
-        int codePointLen = Character.charCount(c);
-        if (N + codePointLen >= stringBuffer.length) {
+		int codePointLen = Character.charCount(c);
+		if (N + codePointLen >= stringBuffer.length) {
 			char[] tmp = new char[stringBuffer.length * 2];
 			System.arraycopy(stringBuffer, 0, tmp, 0, N);
 			stringBuffer = tmp;
 		}
-        if (codePointLen == 1) {
-            stringBuffer[N] = (char) c;
-        } else {
-            stringBuffer[N] = Character.highSurrogate(c);
-            stringBuffer[N + 1] = Character.lowSurrogate(c);
-        }
-        stringBufferTop = N + codePointLen;
+		if (codePointLen == 1) {
+			stringBuffer[N] = (char) c;
+		} else {
+			stringBuffer[N] = Character.highSurrogate(c);
+			stringBuffer[N + 1] = Character.lowSurrogate(c);
+		}
+		stringBufferTop = N + codePointLen;
 	}
 
 	private boolean canUngetChar() {
@@ -1235,7 +1235,7 @@ class TokenStream {
 				}
 				lineEndChar = -1;
 				lineStart = sourceCursor - 1;
-                lastLineEnd = tokenEnd;
+				lastLineEnd = tokenEnd;
 				lineno++;
 			}
 
@@ -1310,8 +1310,18 @@ class TokenStream {
 		int c;
 		while ((c = getChar()) != EOF_CHAR && c != '\n') {
 		}
-		ungetChar(c);
-		tokenEnd = cursor;
+		if (c == EOF_CHAR) {
+			// If we've hit EOF, the cursor hasn't been incremented, so we need to save tokenEnd
+			// _before_ ungetChar
+			tokenEnd = cursor;
+			ungetChar(c);
+		} else {
+			// If we've hit a newline, the cursor has been incremented past it, and ungetChar will
+			// point at the newline, so saving tokenEnd after ungetChar will correctly exclude the
+			// newline
+			ungetChar(c);
+			tokenEnd = cursor;
+		}
 	}
 
 	/**
