@@ -28,8 +28,6 @@ final class NativeNumber extends IdScriptableObject {
 	private static final int ConstructorId_isNaN = -2;
 	private static final int ConstructorId_isInteger = -3;
 	private static final int ConstructorId_isSafeInteger = -4;
-	private static final int ConstructorId_parseFloat = -5;
-	private static final int ConstructorId_parseInt = -6;
 	private static final int Id_constructor = 1;
 	private static final int Id_toString = 2;
 	private static final int Id_toLocaleString = 3;
@@ -83,12 +81,6 @@ final class NativeNumber extends IdScriptableObject {
 					return isSafeInteger((Number) args[0]);
 				}
 				return Boolean.FALSE;
-
-			case ConstructorId_parseFloat:
-				return NativeGlobal.js_parseFloat(cx, args);
-
-			case ConstructorId_parseInt:
-				return NativeGlobal.js_parseInt(args, cx);
 
 			default:
 				throw new IllegalArgumentException(String.valueOf(id));
@@ -190,8 +182,14 @@ final class NativeNumber extends IdScriptableObject {
 		addIdFunctionProperty(ctor, NUMBER_TAG, ConstructorId_isNaN, "isNaN", 1, cx);
 		addIdFunctionProperty(ctor, NUMBER_TAG, ConstructorId_isInteger, "isInteger", 1, cx);
 		addIdFunctionProperty(ctor, NUMBER_TAG, ConstructorId_isSafeInteger, "isSafeInteger", 1, cx);
-		addIdFunctionProperty(ctor, NUMBER_TAG, ConstructorId_parseFloat, "parseFloat", 1, cx);
-		addIdFunctionProperty(ctor, NUMBER_TAG, ConstructorId_parseInt, "parseInt", 1, cx);
+		Object parseFloat = ScriptRuntime.getTopLevelProp(cx, ctor, "parseFloat");
+		if (parseFloat instanceof IdFunctionObject) {
+			((IdFunctionObject) parseFloat).addAsProperty(ctor, cx);
+		}
+		Object parseInt = ScriptRuntime.getTopLevelProp(cx, ctor, "parseInt");
+		if (parseInt instanceof IdFunctionObject) {
+			((IdFunctionObject) parseInt).addAsProperty(ctor, cx);
+		}
 
 		super.fillConstructorProperties(ctor, cx);
 	}
@@ -259,10 +257,7 @@ final class NativeNumber extends IdScriptableObject {
 
 		// The rest of Number.prototype methods require thisObj to be Number
 
-		if (!(thisObj instanceof NativeNumber)) {
-			throw incompatibleCallError(f, cx);
-		}
-		double value = ((NativeNumber) thisObj).doubleValue;
+		double value = ensureType(thisObj, NativeNumber.class, f, cx).doubleValue;
 
 		switch (id) {
 

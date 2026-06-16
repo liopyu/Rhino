@@ -33,19 +33,12 @@ public class NativeWeakMap extends IdScriptableObject {
 	}
 
 	private static NativeWeakMap realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
-		if (thisObj == null) {
-			throw incompatibleCallError(f, cx);
+		final NativeWeakMap nm = ensureType(thisObj, NativeWeakMap.class, f, cx);
+		if (!nm.instanceOfWeakMap) {
+			// Check for "Map internal data tag"
+			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", f.getFunctionName());
 		}
-		try {
-			final NativeWeakMap nm = (NativeWeakMap) thisObj;
-			if (!nm.instanceOfWeakMap) {
-				// Check for "Map internal data tag"
-				throw incompatibleCallError(f, cx);
-			}
-			return nm;
-		} catch (ClassCastException cce) {
-			throw incompatibleCallError(f, cx);
-		}
+		return nm;
 	}
 
 	private final transient WeakHashMap<Scriptable, Object> map = new WeakHashMap<>();

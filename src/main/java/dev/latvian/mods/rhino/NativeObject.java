@@ -378,7 +378,7 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 			}
 			case ConstructorId_setPrototypeOf: {
 				if (args.length < 2) {
-					throw ScriptRuntime.typeError1(cx, "msg.incompat.call", "setPrototypeOf");
+					throw ScriptRuntime.typeError3(cx, "msg.method.missing.parameter", "Object.setPrototypeOf", "2", Integer.toString(args.length));
 				}
 				Scriptable proto = (args[1] == null) ? null : ensureScriptable(args[1], cx);
 				if (proto instanceof Symbol) {
@@ -621,27 +621,45 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 			}
 
 			case ConstructorId_assign: {
-				if (args.length < 1) {
-					throw ScriptRuntime.typeError1(cx, "msg.incompat.call", "assign");
+				Scriptable targetObj;
+				if (args.length > 0) {
+					targetObj = ScriptRuntime.toObject(cx, scope, args[0]);
+				} else {
+					targetObj = ScriptRuntime.toObject(cx, scope, Undefined.INSTANCE);
 				}
-				Scriptable targetObj = ScriptRuntime.toObject(cx, thisObj, args[0]);
 				for (int i = 1; i < args.length; i++) {
 					if ((args[i] == null) || Undefined.isUndefined(args[i])) {
 						continue;
 					}
-					Scriptable sourceObj = ScriptRuntime.toObject(cx, thisObj, args[i]);
-					Object[] ids = sourceObj.getIds(cx);
+					Scriptable sourceObj = ScriptRuntime.toObject(cx, scope, args[i]);
+					Object[] ids;
+					if (sourceObj instanceof ScriptableObject so) {
+						ids = so.getIds(cx, false, true);
+					} else {
+						ids = sourceObj.getIds(cx);
+					}
 					for (Object key : ids) {
-						if (key instanceof String) {
-							Object val = sourceObj.get(cx, (String) key, sourceObj);
-							if ((val != NOT_FOUND) && !Undefined.isUndefined(val)) {
-								targetObj.put(cx, (String) key, targetObj, val);
+						if (key instanceof Integer intId) {
+							if (sourceObj.has(cx, intId, sourceObj) && isEnumerable(cx, intId, sourceObj)) {
+								Object val = sourceObj.get(cx, intId, sourceObj);
+								AbstractEcmaObjectOperations.put(cx, targetObj, intId, val, true);
 							}
-						} else if (key instanceof Number) {
-							int ii = ScriptRuntime.toInt32(cx, key);
-							Object val = sourceObj.get(cx, ii, sourceObj);
-							if ((val != NOT_FOUND) && !Undefined.isUndefined(val)) {
-								targetObj.put(cx, ii, targetObj, val);
+						} else if (key instanceof String stringId) {
+							if (sourceObj.has(cx, stringId, sourceObj) && isEnumerable(cx, stringId, sourceObj)) {
+								Object val = sourceObj.get(cx, stringId, sourceObj);
+								AbstractEcmaObjectOperations.put(cx, targetObj, stringId, val, true);
+							}
+						}
+					}
+
+					// Separate Symbol pass — they must be copied after string properties.
+					if (sourceObj instanceof ScriptableObject sourceSO) {
+						for (Object key : ids) {
+							if (key instanceof Symbol sym) {
+								if (sourceSO.has(cx, sym, sourceObj) && isEnumerable(cx, sym, sourceObj)) {
+									Object val = sourceSO.get(cx, sym, sourceObj);
+									AbstractEcmaObjectOperations.put(cx, targetObj, sym, val, true);
+								}
 							}
 						}
 					}
@@ -949,4 +967,25 @@ public class NativeObject extends IdScriptableObject implements Map, DataObject 
 	}
 
 	// #/string_id_map#
+
+	private static boolean isEnumerable(Context cx, int index, Object obj) {
+		if (obj instanceof ScriptableObject so) {
+			return (so.getAttributes(cx, index) & DONTENUM) == 0;
+		}
+		return true;
+	}
+
+	private static boolean isEnumerable(Context cx, String key, Object obj) {
+		if (obj instanceof ScriptableObject so) {
+			return (so.getAttributes(cx, key) & DONTENUM) == 0;
+		}
+		return true;
+	}
+
+	private static boolean isEnumerable(Context cx, Symbol sym, Object obj) {
+		if (obj instanceof ScriptableObject so) {
+			return (so.getAttributes(cx, sym) & DONTENUM) == 0;
+		}
+		return true;
+	}
 }

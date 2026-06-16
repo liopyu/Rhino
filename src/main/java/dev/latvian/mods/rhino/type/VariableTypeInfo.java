@@ -4,7 +4,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -12,8 +11,6 @@ import java.util.Map;
  * @author Prunoideae
  */
 public class VariableTypeInfo extends TypeInfoBase {
-	static final Map<TypeVariable<?>, VariableTypeInfo> CACHE = new HashMap<>();
-
 	private final TypeVariable<?> raw;
 	// defer bound init to handle "T extends Enum<T>" properly
 	private TypeInfo mainBound;

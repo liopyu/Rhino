@@ -115,9 +115,7 @@ public final class ES6Generator extends IdScriptableObject {
 		}
 		int id = f.methodId();
 
-		if (!(thisObj instanceof ES6Generator generator)) {
-			throw incompatibleCallError(f, cx);
-		}
+		ES6Generator generator = ensureType(thisObj, ES6Generator.class, f, cx);
 
 		Object value = args.length >= 1 ? args[0] : Undefined.INSTANCE;
 

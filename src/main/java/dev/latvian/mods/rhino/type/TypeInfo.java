@@ -89,6 +89,46 @@ public interface TypeInfo {
 		return this == info;
 	}
 
+	default boolean is(Class<?> c) {
+		return asClass() == c;
+	}
+
+	default boolean isNot(Class<?> c) {
+		return asClass() != c;
+	}
+
+	default boolean isAssignableFrom(TypeInfo other) {
+		return asClass().isAssignableFrom(other.asClass());
+	}
+
+	default boolean isInstance(Object o) {
+		return asClass().isInstance(o);
+	}
+
+	default boolean isObjectExact() {
+		return asClass() == Object.class;
+	}
+
+	default boolean isArray() {
+		return asClass().isArray();
+	}
+
+	default boolean isInterface() {
+		return asClass().isInterface();
+	}
+
+	default boolean isEnum() {
+		return asClass().isEnum();
+	}
+
+	default boolean isNumber() {
+		return Number.class.isAssignableFrom(asClass());
+	}
+
+	default boolean isString() {
+		return asClass() == String.class;
+	}
+
 	default boolean isPrimitive() {
 		return false;
 	}
@@ -97,97 +137,39 @@ public interface TypeInfo {
 		return true;
 	}
 
+	/**
+	 * Returns one of {@link dev.latvian.mods.rhino.FunctionObject}'s {@code JAVA_*_TYPE}
+	 * constants for this type, used by reflective dispatch to pick a conversion strategy.
+	 * Equivalent to {@code FunctionObject.getTypeTag(asClass())}; provided as a default
+	 * method so callers that already hold a {@code TypeInfo} can skip the {@link #asClass()}
+	 * round-trip.
+	 */
+	default int getTypeTag() {
+		return dev.latvian.mods.rhino.FunctionObject.getTypeTag(asClass());
+	}
+
 	static TypeInfo of(Class<?> c) {
-		if (c == null || c == Object.class) {
-			return OBJECT;
-		} else if (c == Void.TYPE) {
-			return PRIMITIVE_VOID;
-		}
-
-		var cached = TypeUtils.IMMUTABLE_CACHE.get(c);
-
-		if (cached != null) {
-			return cached;
-		} else if (c.isArray()) {
-			return of(c.getComponentType()).asArray();
-		} else if (c.isEnum()) {
-			synchronized (EnumTypeInfo.CACHE) {
-				return EnumTypeInfo.CACHE.computeIfAbsent(c, EnumTypeInfo::new);
-			}
-		} else if (c.isRecord()) {
-			synchronized (RecordTypeInfo.CACHE) {
-				return RecordTypeInfo.CACHE.computeIfAbsent(c, RecordTypeInfo::new);
-			}
-		} else if (c.isInterface()) {
-			synchronized (InterfaceTypeInfo.CACHE) {
-				return InterfaceTypeInfo.CACHE.computeIfAbsent(c, InterfaceTypeInfo::new);
-			}
-		} else {
-			synchronized (BasicClassTypeInfo.CACHE) {
-				return BasicClassTypeInfo.CACHE.computeIfAbsent(c, BasicClassTypeInfo::new);
-			}
-		}
+		return TypeInfoFactory.GLOBAL.create(c);
 	}
 
 	static VariableTypeInfo of(TypeVariable<?> typeVariable) {
-		synchronized (VariableTypeInfo.CACHE) {
-			return VariableTypeInfo.CACHE.computeIfAbsent(typeVariable, VariableTypeInfo::new);
-		}
+		return TypeInfoFactory.GLOBAL.create(typeVariable);
 	}
 
 	static TypeInfo of(Type type) {
-		return switch (type) {
-			case Class<?> clz -> of(clz);
-			case ParameterizedType paramType -> of(paramType.getRawType()).withParams(ofArray(paramType.getActualTypeArguments()));
-			case GenericArrayType arrType -> of(arrType.getGenericComponentType()).asArray();
-			case TypeVariable<?> variable -> of(variable);
-			case WildcardType wildcard -> {
-				var lower = wildcard.getLowerBounds();
-
-				if (lower.length == 0) {
-					var upper = wildcard.getUpperBounds();
-
-					if (upper.length == 0 || upper[0] == Object.class) {
-						yield NONE;
-					}
-
-					yield of(upper[0]);
-				} else {
-					yield of(lower[0]);
-				}
-			}
-			case null, default -> NONE;
-		};
+		return TypeInfoFactory.GLOBAL.create(type);
 	}
 
 	static TypeInfo[] ofArray(Type[] array) {
-		if (array.length == 0) {
-			return EMPTY_ARRAY;
-		} else {
-			var arr = new TypeInfo[array.length];
-
-			for (int i = 0; i < array.length; i++) {
-				arr[i] = of(array[i]);
-			}
-
-			return arr;
-		}
+		return TypeInfoFactory.GLOBAL.createArray(array);
 	}
 
 	static TypeInfo safeOf(Supplier<Type> supplier) {
-		try {
-			return of(supplier.get());
-		} catch (Throwable ignored) {
-			return TypeInfo.NONE;
-		}
+		return TypeInfoFactory.GLOBAL.safeCreate(supplier);
 	}
 
 	static TypeInfo[] safeOfArray(Supplier<Type[]> supplier) {
-		try {
-			return ofArray(supplier.get());
-		} catch (Exception ignored) {
-			return EMPTY_ARRAY;
-		}
+		return TypeInfoFactory.GLOBAL.safeCreateArray(supplier);
 	}
 
 	default String signature() {

@@ -6,6 +6,8 @@
 
 package dev.latvian.mods.rhino.regexp;
 
+import dev.latvian.mods.rhino.AbstractEcmaObjectOperations;
+import dev.latvian.mods.rhino.Constructable;
 import dev.latvian.mods.rhino.Context;
 import dev.latvian.mods.rhino.Function;
 import dev.latvian.mods.rhino.IdFunctionObject;
@@ -13,6 +15,7 @@ import dev.latvian.mods.rhino.IdScriptableObject;
 import dev.latvian.mods.rhino.Kit;
 import dev.latvian.mods.rhino.MemberType;
 import dev.latvian.mods.rhino.ScriptRuntime;
+import dev.latvian.mods.rhino.ScriptRuntimeES6;
 import dev.latvian.mods.rhino.Scriptable;
 import dev.latvian.mods.rhino.ScriptableObject;
 import dev.latvian.mods.rhino.Symbol;
@@ -39,6 +42,7 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 	public static final int JSREG_GLOB = 0x1;       // 'g' flag: global
 	public static final int JSREG_FOLD = 0x2;       // 'i' flag: fold
 	public static final int JSREG_MULTILINE = 0x4;  // 'm' flag: multiline
+	public static final int JSREG_STICKY = 0x8;     // 'y' flag: sticky
 	//type of match to perform
 	public static final int TEST = 0;
 	public static final int MATCH = 1;
@@ -104,10 +108,12 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 	private static final int INDEX_LEN = 2;
 	private static final int Id_lastIndex = 1;
 	private static final int Id_source = 2;
-	private static final int Id_global = 3;
-	private static final int Id_ignoreCase = 4;
-	private static final int Id_multiline = 5;
-	private static final int MAX_INSTANCE_ID = 5;
+	private static final int Id_flags = 3;
+	private static final int Id_global = 4;
+	private static final int Id_ignoreCase = 5;
+	private static final int Id_multiline = 6;
+	private static final int Id_sticky = 7;
+	private static final int MAX_INSTANCE_ID = 7;
 	private static final int Id_compile = 1;
 	private static final int Id_toString = 2;
 	private static final int Id_toSource = 3;
@@ -115,7 +121,8 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 	private static final int Id_test = 5;
 	private static final int Id_prefix = 6;
 	private static final int SymbolId_match = 7;
-	private static final int SymbolId_search = 8;
+	private static final int SymbolId_matchAll = 8;
+	private static final int SymbolId_search = 9;
 	private static final int MAX_PROTOTYPE_ID = SymbolId_search;
 
 	public static void init(Context cx, Scriptable scope, boolean sealed) {
@@ -141,6 +148,8 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		}
 
 		defineProperty(scope, "RegExp", ctor, ScriptableObject.DONTENUM, cx);
+
+		ScriptRuntimeES6.addSymbolSpecies(cx, scope, ctor);
 	}
 
 	private static String escapeRegExp(Context cx, Object src) {
@@ -181,6 +190,8 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 					f = JSREG_FOLD;
 				} else if (c == 'm') {
 					f = JSREG_MULTILINE;
+				} else if (c == 'y') {
+					f = JSREG_STICKY;
 				} else {
 					reportError("msg.invalid.re.flag", String.valueOf(c), cx);
 				}
@@ -966,7 +977,7 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 				int max = -1;
 				int leftCurl = state.cp;
 
-				/* For Perl etc. compatibility, if quntifier does not match
+                    /* For Perl etc. compatibility, if quantifier does not match
 				 * \{\d+(,\d*)?\} exactly back off from it
 				 * being a quantifier, and chew it up as a literal
 				 * atom next time instead.
@@ -983,8 +994,8 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 								max = getDecimalValue(c, state, 0xFFFF, "msg.overlarge.max", cx);
 								c = src[state.cp];
 								if (min > max) {
-									reportError("msg.max.lt.min", String.valueOf(src[state.cp]), cx);
-									return false;
+									String msg = ScriptRuntime.getMessage2("msg.max.lt.min", max, min);
+									throw ScriptRuntime.constructError(cx, "SyntaxError", msg);
 								}
 							}
 						} else {
@@ -2187,6 +2198,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 					if (matchCh == anchorCh || ((gData.regexp.flags & JSREG_FOLD) != 0 && upcase(matchCh) == upcase((char) anchorCh))) {
 						break;
 					}
+
+					if ((gData.regexp.flags & JSREG_STICKY) != 0) {
+						return false;
+					}
+
 					++i;
 				}
 			}
@@ -2206,6 +2222,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 				gData.skipped = end;
 				return false;
 			}
+
+            if ((gData.regexp.flags & JSREG_STICKY) != 0) {
+                return false;
+            }
+
 			i = start + gData.skipped;
 		}
 		return false;
@@ -2217,10 +2238,39 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 	}
 
 	private static NativeRegExp realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
-		if (!(thisObj instanceof NativeRegExp)) {
-			throw incompatibleCallError(f, cx);
+		return realThis(thisObj, f.getFunctionName(), cx);
+	}
+
+	private static NativeRegExp realThis(Scriptable thisObj, String functionName, Context cx) {
+		return ensureType(thisObj, NativeRegExp.class, functionName, cx);
+	}
+
+	public static Object js_exec(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+		return realThis(thisObj, "exec", cx).execSub(cx, scope, args, MATCH);
+	}
+
+	private Object js_SymbolMatchAll(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+		// See ECMAScript spec 22.2.6.9
+		if (!ScriptRuntime.isObject(thisObj)) {
+			throw ScriptRuntime.typeError1(cx, "msg.arg.not.object", ScriptRuntime.typeof(cx, thisObj).toString());
 		}
-		return (NativeRegExp) thisObj;
+
+		String s = ScriptRuntime.toString(cx, args.length > 0 ? args[0] : Undefined.INSTANCE);
+
+		Scriptable topLevelScope = ScriptableObject.getTopLevelScope(scope);
+		Constructable defaultConstructor = ScriptRuntime.getExistingCtor(cx, topLevelScope, getClassName());
+		Constructable c = AbstractEcmaObjectOperations.speciesConstructor(cx, thisObj, defaultConstructor);
+
+		String flags = ScriptRuntime.toString(cx, ScriptRuntime.getObjectProp(cx, scope, thisObj, "flags"));
+
+		Scriptable matcher = c.construct(cx, scope, new Object[]{thisObj, flags});
+
+		long lastIndex = ScriptRuntime.toLength(cx, ScriptRuntime.getObjectProp(cx, scope, thisObj, "lastIndex"));
+		ScriptRuntime.setObjectProp(cx, scope, matcher, "lastIndex", lastIndex);
+		boolean global = flags.indexOf('g') != -1;
+		boolean fullUnicode = flags.indexOf('u') != -1 || flags.indexOf('v') != -1;
+
+		return new NativeRegExpStringIterator(cx, scope, matcher, s, global, fullUnicode);
 	}
 
 	Object lastIndex = ScriptRuntime.zeroObj;     /* index after last match, for //g iterator */
@@ -2297,6 +2347,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 			buf.append("(?:)");
 		}
 		buf.append('/');
+		appendFlags(buf);
+		return buf.toString();
+	}
+
+	private void appendFlags(StringBuilder buf) {
 		if ((re.flags & JSREG_GLOB) != 0) {
 			buf.append('g');
 		}
@@ -2306,7 +2361,9 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		if ((re.flags & JSREG_MULTILINE) != 0) {
 			buf.append('m');
 		}
-		return buf.toString();
+		if ((re.flags & JSREG_STICKY) != 0) {
+			buf.append('y');
+		}
 	}
 
 	private Object execSub(Context cx, Scriptable scopeObj, Object[] args, int matchType) {
@@ -2320,24 +2377,24 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		} else {
 			str = ScriptRuntime.toString(cx, args[0]);
 		}
+		boolean globalOrSticky = (re.flags & JSREG_GLOB) != 0 || (re.flags & JSREG_STICKY) != 0;
 		double d = 0;
-		if ((re.flags & JSREG_GLOB) != 0) {
+		if (globalOrSticky) {
 			d = ScriptRuntime.toInteger(cx, lastIndex);
+
+			if (d < 0 || str.length() < d) {
+				setLastIndex(ScriptRuntime.zeroObj, cx);
+				return null;
+			}
 		}
 
-		Object rval;
-		if (d < 0 || str.length() < d) {
-			setLastIndex(ScriptRuntime.zeroObj, cx);
-			rval = null;
-		} else {
-			int[] indexp = {(int) d};
-			rval = executeRegExp(cx, scopeObj, reImpl, str, indexp, matchType);
-			if ((re.flags & JSREG_GLOB) != 0) {
-				if (rval == null || rval == Undefined.INSTANCE) {
-					setLastIndex(ScriptRuntime.zeroObj, cx);
-				} else {
-					setLastIndex((double) indexp[0], cx);
-				}
+		int[] indexp = {(int) d};
+		Object rval = executeRegExp(cx, scopeObj, reImpl, str, indexp, matchType);
+		if (globalOrSticky) {
+			if (rval == null || rval == Undefined.INSTANCE) {
+				setLastIndex(ScriptRuntime.zeroObj, cx);
+			} else {
+				setLastIndex((double) indexp[0], cx);
 			}
 		}
 		return rval;
@@ -2460,9 +2517,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		int id = switch (s) {
 			case "lastIndex" -> Id_lastIndex;
 			case "source" -> Id_source;
+			case "flags" -> Id_flags;
 			case "global" -> Id_global;
 			case "ignoreCase" -> Id_ignoreCase;
 			case "multiline" -> Id_multiline;
+			case "sticky" -> Id_sticky;
 			default -> 0;
 		};
 
@@ -2472,7 +2531,7 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 
 		int attr = switch (id) {
 			case Id_lastIndex -> lastIndexAttr;
-			case Id_source, Id_global, Id_ignoreCase, Id_multiline -> PERMANENT | READONLY | DONTENUM;
+			case Id_source, Id_flags, Id_global, Id_ignoreCase, Id_multiline, Id_sticky -> PERMANENT | READONLY | DONTENUM;
 			default -> throw new IllegalStateException();
 		};
 		return instanceIdInfo(attr, id);
@@ -2483,9 +2542,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		return switch (id) {
 			case Id_lastIndex -> "lastIndex";
 			case Id_source -> "source";
+			case Id_flags -> "flags";
 			case Id_global -> "global";
 			case Id_ignoreCase -> "ignoreCase";
 			case Id_multiline -> "multiline";
+			case Id_sticky -> "sticky";
 			default -> super.getInstanceIdName(id);
 		};
 	}
@@ -2495,9 +2556,15 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		return switch (id) {
 			case Id_lastIndex -> lastIndex;
 			case Id_source -> new String(re.source);
+			case Id_flags -> {
+				StringBuilder buf = new StringBuilder();
+				appendFlags(buf);
+				yield buf.toString();
+			}
 			case Id_global -> (re.flags & JSREG_GLOB) != 0;
 			case Id_ignoreCase -> (re.flags & JSREG_FOLD) != 0;
 			case Id_multiline -> (re.flags & JSREG_MULTILINE) != 0;
+			case Id_sticky -> (re.flags & JSREG_STICKY) != 0;
 			default -> super.getInstanceIdValue(id, cx);
 		};
 	}
@@ -2516,9 +2583,11 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 				setLastIndex(value, cx);
 				return;
 			case Id_source:
+			case Id_flags:
 			case Id_global:
 			case Id_ignoreCase:
 			case Id_multiline:
+			case Id_sticky:
 				return;
 		}
 		super.setInstanceIdValue(id, value, cx);
@@ -2537,6 +2606,10 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 	protected void initPrototypeId(int id, Context cx) {
 		if (id == SymbolId_match) {
 			initPrototypeMethod(REGEXP_TAG, id, SymbolKey.MATCH, "[Symbol.match]", 1, cx);
+			return;
+		}
+		if (id == SymbolId_matchAll) {
+			initPrototypeMethod(REGEXP_TAG, id, SymbolKey.MATCH_ALL, "[Symbol.matchAll]", 1, cx);
 			return;
 		}
 		if (id == SymbolId_search) {
@@ -2593,7 +2666,7 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 				return realThis(thisObj, f, cx).toString();
 
 			case Id_exec:
-				return realThis(thisObj, f, cx).execSub(cx, scope, args, MATCH);
+				return js_exec(cx, scope, thisObj, args);
 
 			case Id_test: {
 				Object x = realThis(thisObj, f, cx).execSub(cx, scope, args, TEST);
@@ -2605,6 +2678,9 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 
 			case SymbolId_match:
 				return realThis(thisObj, f, cx).execSub(cx, scope, args, MATCH);
+
+			case SymbolId_matchAll:
+				return realThis(thisObj, f, cx).js_SymbolMatchAll(cx, scope, thisObj, args);
 
 				case SymbolId_search:
 					Scriptable scriptable = (Scriptable) realThis(thisObj, f, cx).execSub(cx, scope, args, MATCH);
@@ -2618,6 +2694,9 @@ public class NativeRegExp extends IdScriptableObject implements Function {
 		if (SymbolKey.MATCH.equals(k)) {
 			return SymbolId_match;
 		}
+        if (SymbolKey.MATCH_ALL.equals(k)) {
+            return SymbolId_matchAll;
+        }
 		if (SymbolKey.SEARCH.equals(k)) {
 			return SymbolId_search;
 		}

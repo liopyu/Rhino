@@ -117,6 +117,22 @@ class TokenStream {
 		return buf.toString();
 	}
 
+	private static boolean isValidIdentifierName(String str) {
+		int i = 0;
+		for (int c : str.codePoints().toArray()) {
+			if (i++ == 0) {
+				if (c != '$' && c != '_' && !Character.isUnicodeIdentifierStart(c)) {
+					return false;
+				}
+			} else {
+				if (c != '$' && c != 0x200c && c != 0x200d && !Character.isUnicodeIdentifierPart(c)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	private final StringBuilder rawString = new StringBuilder();
 	private final ObjToIntMap allStrings = new ObjToIntMap(50);
 	// Room to backtrace from to < on failed match of the last - in <!--
@@ -273,7 +289,7 @@ class TokenStream {
 					c = '\\';
 				}
 			} else {
-				identifierStart = Character.isJavaIdentifierStart((char) c);
+                identifierStart = Character.isUnicodeIdentifierStart(c) || c == '$' || c == '_';
 				if (identifierStart) {
 					stringBufferTop = 0;
 					addToString(c);
@@ -291,13 +307,33 @@ class TokenStream {
 						// escape sequence in an identifier, we can report
 						// an error here.
 						int escapeVal = 0;
-						for (int i = 0; i != 4; ++i) {
-							c = getChar();
-							escapeVal = Kit.xDigitToInt(c, escapeVal);
-							// Next check takes care about c < 0 and bad escape
-							if (escapeVal < 0) {
+                        if (matchTemplateLiteralChar('{')) {
+                            for (; ; ) {
+                                c = getTemplateLiteralChar();
+
+                                if (c == '}') {
+                                    break;
+                                }
+                                escapeVal = Kit.xDigitToInt(c, escapeVal);
+                                if (escapeVal < 0) {
+                                    break;
+                                }
+                            }
+
+                            if (escapeVal < 0 || escapeVal > 0x10FFFF) {
+                                parser.reportError("msg.invalid.escape");
 								break;
 							}
+                        } else {
+                            for (int i = 0; i != 4; ++i) {
+                                c = getChar();
+                                escapeVal = Kit.xDigitToInt(c, escapeVal);
+                                // Next check takes care about c < 0 and bad escape
+                                if (escapeVal < 0) {
+                                    parser.reportError("msg.invalid.escape");
+                                    break;
+                                }
+                            }
 						}
 						if (escapeVal < 0) {
 							parser.addError("msg.invalid.escape");
@@ -317,7 +353,7 @@ class TokenStream {
 								return Token.ERROR;
 							}
 						} else {
-							if (c == EOF_CHAR || c == BYTE_ORDER_MARK || !Character.isJavaIdentifierPart((char) c)) {
+							if (c == EOF_CHAR || c == BYTE_ORDER_MARK || !(Character.isUnicodeIdentifierPart(c) || c == '$')) {
 								break;
 							}
 							addToString(c);
@@ -327,23 +363,19 @@ class TokenStream {
 				ungetChar(c);
 
 				String str = getStringFromBuffer();
-				if (!containsEscape) {
-					// OPT we shouldn't have to make a string (object!) to
-					// check if it's a keyword.
-
-					// Return the corresponding token if it's a keyword
-					int result = stringToKeyword(str, parser.inUseStrictDirective());
-					if (result != Token.EOF) {
-						// Save the string in case we need to use in
-						// object literal definitions.
-						this.string = (String) allStrings.intern(str);
-						return result;
-					}
-				} else if (isKeyword(str, parser.inUseStrictDirective())) {
-					// If a string contains unicodes, and converted to a keyword,
-					// we convert the last character back to unicode
-					str = convertLastCharToHex(str);
+				// Return the corresponding token if it's a keyword (ES6: check even when
+				// the identifier contains a unicode escape — `if` is a syntax error).
+				int result = stringToKeyword(str, parser.inUseStrictDirective());
+				if (result != Token.EOF) {
+					this.string = (String) allStrings.intern(str);
+					return result;
 				}
+
+				if (containsEscape && !isValidIdentifierName(str)) {
+					parser.reportError("msg.invalid.escape");
+					return Token.ERROR;
+				}
+
 				this.string = (String) allStrings.intern(str);
 				return Token.NAME;
 			}
@@ -516,13 +548,33 @@ class TokenStream {
 								int escapeStart = stringBufferTop;
 								addToString('u');
 								escapeVal = 0;
-								for (int i = 0; i != 4; ++i) {
-									c = getChar();
-									escapeVal = Kit.xDigitToInt(c, escapeVal);
-									if (escapeVal < 0) {
+								if (matchChar('{')) {
+									for (; ; ) {
+										c = getChar();
+										if (c == '}') {
+											addToString(c);
+											break;
+										}
+										escapeVal = Kit.xDigitToInt(c, escapeVal);
+										if (escapeVal < 0) {
+											break;
+										}
+										addToString(c);
+									}
+									if (escapeVal < 0 || escapeVal > 0x10FFFF) {
+										parser.reportError("msg.invalid.escape");
 										continue strLoop;
 									}
-									addToString(c);
+								} else {
+									for (int i = 0; i != 4; ++i) {
+										c = getChar();
+										escapeVal = Kit.xDigitToInt(c, escapeVal);
+										if (escapeVal < 0) {
+											parser.reportError("msg.invalid.escape");
+											continue strLoop;
+										}
+										addToString(c);
+									}
 								}
 								// prepare for replace of stored 'u' sequence
 								// by escape value
@@ -583,6 +635,15 @@ class TokenStream {
 				this.string = (String) allStrings.intern(str);
 				return Token.STRING;
 			}
+
+            if (c == '#'
+                    && cursor == 1
+                    && peekChar() == '!'
+                    && !this.parser.calledByCompileFunction) {
+                // #! hashbang: only on the first line of a Script, no leading whitespace
+                skipLine();
+                return Token.COMMENT;
+            }
 
 			switch (c) {
 				case ';':
@@ -875,7 +936,7 @@ class TokenStream {
 		tokenEnd = start + stringBufferTop + 2;  // include slashes
 
 		if (isAlpha(peekChar())) {
-			parser.reportError("msg.invalid.re.flag");
+			parser.reportError("msg.invalid.re.flag", String.valueOf(Character.toChars(peekChar())));
 		}
 
 		this.string = new String(stringBuffer, 0, reEnd);
@@ -1096,13 +1157,19 @@ class TokenStream {
 
 	private void addToString(int c) {
 		int N = stringBufferTop;
-		if (N == stringBuffer.length) {
+        int codePointLen = Character.charCount(c);
+        if (N + codePointLen >= stringBuffer.length) {
 			char[] tmp = new char[stringBuffer.length * 2];
 			System.arraycopy(stringBuffer, 0, tmp, 0, N);
 			stringBuffer = tmp;
 		}
-		stringBuffer[N] = (char) c;
-		stringBufferTop = N + 1;
+        if (codePointLen == 1) {
+            stringBuffer[N] = (char) c;
+        } else {
+            stringBuffer[N] = Character.highSurrogate(c);
+            stringBuffer[N + 1] = Character.lowSurrogate(c);
+        }
+        stringBufferTop = N + codePointLen;
 	}
 
 	private boolean canUngetChar() {
@@ -1151,7 +1218,8 @@ class TokenStream {
 				return EOF_CHAR;
 			}
 			cursor++;
-			c = sourceString.charAt(sourceCursor++);
+			c = sourceString.codePointAt(sourceCursor);
+			sourceCursor += Character.charCount(c);
 
 			if (lineEndChar >= 0) {
 				if (lineEndChar == '\r' && c == '\n') {

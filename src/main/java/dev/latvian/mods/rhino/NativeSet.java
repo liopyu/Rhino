@@ -31,13 +31,15 @@ public class NativeSet extends IdScriptableObject {
 
 	static void init(Context cx, Scriptable scope, boolean sealed) {
 		NativeSet obj = new NativeSet(cx);
-		obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, false, cx);
+		IdFunctionObject constructor = obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, false, cx);
 
 		ScriptableObject desc = (ScriptableObject) cx.newObject(scope);
 		desc.put(cx, "enumerable", desc, Boolean.FALSE);
 		desc.put(cx, "configurable", desc, Boolean.TRUE);
 		desc.put(cx, "get", desc, obj.get(cx, GETSIZE, obj));
 		obj.defineOwnProperty(cx, "size", desc);
+
+		ScriptRuntimeES6.addSymbolSpecies(cx, scope, constructor);
 
 		if (sealed) {
 			obj.sealObject(cx);
@@ -78,19 +80,12 @@ public class NativeSet extends IdScriptableObject {
 	}
 
 	private static NativeSet realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
-		if (thisObj == null) {
-			throw incompatibleCallError(f, cx);
+		final NativeSet ns = ensureType(thisObj, NativeSet.class, f, cx);
+		if (!ns.instanceOfSet) {
+			// If we get here, then this object doesn't have the "Set internal data slot."
+			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", f.getFunctionName());
 		}
-		try {
-			final NativeSet ns = (NativeSet) thisObj;
-			if (!ns.instanceOfSet) {
-				// If we get here, then this object doesn't have the "Set internal data slot."
-				throw incompatibleCallError(f, cx);
-			}
-			return ns;
-		} catch (ClassCastException cce) {
-			throw incompatibleCallError(f, cx);
-		}
+		return ns;
 	}
 
 	private final Hashtable entries;
@@ -154,8 +149,7 @@ public class NativeSet extends IdScriptableObject {
 	}
 
 	private Object js_delete(Context cx, Object arg) {
-		final Object ov = entries.delete(cx, arg);
-		return ov != null;
+		return entries.deleteEntry(cx, arg);
 	}
 
 	private Object js_has(Context cx, Object arg) {

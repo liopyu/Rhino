@@ -47,7 +47,7 @@ public class TopLevel extends IdScriptableObject {
 	 * @param type  the built-in type
 	 * @return the built-in constructor
 	 */
-	public static Function getBuiltinCtor(Context cx, Scriptable scope, Builtins type) {
+	public static Constructable getBuiltinCtor(Context cx, Scriptable scope, Builtins type) {
 		// must be called with top level scope
 		assert scope.getParentScope() == null;
 		if (scope instanceof TopLevel) {
@@ -80,7 +80,7 @@ public class TopLevel extends IdScriptableObject {
 	 * @param type  the native error type
 	 * @return the native error constructor
 	 */
-	static Function getNativeErrorCtor(Context cx, Scriptable scope, NativeErrors type) {
+	static Constructable getNativeErrorCtor(Context cx, Scriptable scope, NativeErrors type) {
 		// must be called with top level scope
 		assert scope.getParentScope() == null;
 		if (scope instanceof TopLevel) {
@@ -253,6 +253,10 @@ public class TopLevel extends IdScriptableObject {
 	 * An enumeration of built-in native errors. [ECMAScript 5 - 15.11.6]
 	 */
 	enum NativeErrors {
+		/**
+		 * The AggregateError
+		 */
+		AggregateError,
 		/**
 		 * Basic Error
 		 */

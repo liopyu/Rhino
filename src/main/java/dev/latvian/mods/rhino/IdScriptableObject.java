@@ -314,30 +314,23 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 	}
 
 	/**
-	 * Utility method to construct type error to indicate incompatible call
-	 * when converting script thisObj to a particular type is not possible.
-	 * Possible usage would be to have a private function like realThis:
-	 * <pre>
-	 *  private static NativeSomething realThis(Scriptable thisObj,
-	 *                                          IdFunctionObject f)
-	 *  {
-	 *      if (!(thisObj instanceof NativeSomething))
-	 *          throw incompatibleCallError(f);
-	 *      return (NativeSomething)thisObj;
-	 * }
-	 * </pre>
-	 * Note that although such function can be implemented universally via
-	 * java.lang.Class.isInstance(), it would be much more slower.
+	 * Utility method to check that {@code obj} is of the expected type and cast it.
 	 *
-	 * @param f  function that is attempting to convert 'this'
-	 *           object.
-	 * @param cx
-	 * @return Scriptable object suitable for a check by the instanceof
-	 * operator.
-	 * @throws RuntimeException if no more instanceof target can be found
+	 * @throws EcmaError if the cast failed.
 	 */
-	protected static EcmaError incompatibleCallError(IdFunctionObject f, Context cx) {
-		throw ScriptRuntime.typeError1(cx, "msg.incompat.call", f.getFunctionName());
+	protected static <T> T ensureType(Object obj, Class<T> clazz, IdFunctionObject f, Context cx) {
+		return ensureType(obj, clazz, f.getFunctionName(), cx);
+	}
+
+	@SuppressWarnings("unchecked")
+	protected static <T> T ensureType(Object obj, Class<T> clazz, String functionName, Context cx) {
+		if (clazz.isInstance(obj)) {
+			return (T) obj;
+		}
+		if (obj == null) {
+			throw ScriptRuntime.typeError3(cx, "msg.incompat.call.details", functionName, "null", clazz.getName());
+		}
+		throw ScriptRuntime.typeError3(cx, "msg.incompat.call.details", functionName, obj.getClass().getName(), clazz.getName());
 	}
 
 	private transient PrototypeValues prototypeValues;
@@ -866,13 +859,14 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 					checkPropertyChange(cx, name, current, desc);
 					int attr = (info >>> 16);
 					Object value = getProperty(desc, "value", cx);
-					if (value != NOT_FOUND && (attr & READONLY) == 0) {
+					if (value != NOT_FOUND && ((attr & READONLY) == 0 || (attr & PERMANENT) == 0)) {
 						Object currentValue = getInstanceIdValue(id, cx);
 						if (!sameValue(cx, value, currentValue)) {
 							setInstanceIdValue(id, value, cx);
 						}
 					}
-					setAttributes(cx, name, applyDescriptorToAttributeBitset(cx, attr, desc));
+					attr = applyDescriptorToAttributeBitset(cx, attr, desc);
+					setAttributes(cx, name, attr);
 					return;
 				}
 			}
@@ -915,9 +909,15 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
 		ScriptableObject desc = super.getOwnPropertyDescriptor(cx, id);
 		if (desc == null) {
 			if (id instanceof String) {
-				desc = getBuiltInDescriptor((String) id, cx);
-			} else if (ScriptRuntime.isSymbol(id)) {
-				desc = getBuiltInDescriptor(((NativeSymbol) id).getKey(), cx);
+				return getBuiltInDescriptor((String) id, cx);
+			}
+
+			if (ScriptRuntime.isSymbol(id)) {
+				if (id instanceof SymbolKey) {
+					return getBuiltInDescriptor((SymbolKey) id, cx);
+				}
+
+				return getBuiltInDescriptor(((NativeSymbol) id).getKey(), cx);
 			}
 		}
 		return desc;

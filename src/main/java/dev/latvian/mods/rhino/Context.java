@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -229,6 +230,8 @@ public class Context {
 
 	private Map<Object, Object> threadLocalMap;
 	private ClassLoader applicationClassLoader;
+	private final ArrayDeque<Runnable> microtasks = new ArrayDeque<>();
+	private final UnhandledRejectionTracker unhandledPromises = new UnhandledRejectionTracker();
 
 	// custom data
 
@@ -862,6 +865,52 @@ public class Context {
 		applicationClassLoader = loader;
 	}
 
+	/**
+	 * Add a task that will be executed at the end of the current operation. The various "evaluate"
+	 * functions will all call this before exiting to ensure that all microtasks run to completion.
+	 * Otherwise, callers should call "processMicrotasks" to run them all. This feature is primarily
+	 * used to implement Promises. The microtask queue is not thread-safe.
+	 */
+	public void enqueueMicrotask(Runnable task) {
+		microtasks.add(task);
+	}
+
+	/**
+	 * Run all the microtasks for the current context to completion. This is called by the various
+	 * "evaluate" functions. Frameworks that call Function objects directly should call this
+	 * function to ensure that everything completes if they want all Promises to eventually resolve.
+	 * This function is idempotent, but the microtask queue is not thread-safe.
+	 */
+	public void processMicrotasks() {
+		Runnable head;
+		do {
+			head = microtasks.poll();
+			if (head != null) {
+				head.run();
+			}
+		} while (head != null);
+	}
+
+	/**
+	 * Control whether to track unhandled promise rejections. If "track" is set to true, then the
+	 * tracker returned by "getUnhandledPromiseTracker" must be periodically used to process the
+	 * queue of unhandled promise rejections, or a memory leak may result.
+	 *
+	 * @param track if true, then track unhandled promise rejections
+	 */
+	public void setTrackUnhandledPromiseRejections(boolean track) {
+		unhandledPromises.enable(track);
+	}
+
+	/**
+	 * Return the object used to track unhandled promise rejections.
+	 *
+	 * @return the tracker object
+	 */
+	public UnhandledRejectionTracker getUnhandledPromiseTracker() {
+		return unhandledPromises;
+	}
+
 	private Object compileImpl(Scriptable scope, String sourceString, String sourceName, int lineno, Object securityDomain, boolean returnFunction, Evaluator compiler, ErrorReporter compilationErrorReporter) throws IOException {
 		if (sourceName == null) {
 			sourceName = "unnamed script";
@@ -1056,6 +1105,7 @@ public class Context {
 		if (obj instanceof String ||
 			obj instanceof Boolean ||
 			obj instanceof Integer ||
+			obj instanceof Byte ||
 			obj instanceof Short ||
 			obj instanceof Long ||
 			obj instanceof Float ||
@@ -1598,7 +1648,7 @@ public class Context {
 					return ScriptRuntime.toString(this, from);
 				} else if (target == TypeInfo.OBJECT) {
 					return coerceToNumber(TypeInfo.DOUBLE, from);
-				} else if ((target.isPrimitive() && !target.isBoolean()) || ScriptRuntime.NumberClass.isAssignableFrom(target.asClass())) {
+				} else if ((target.isPrimitive() && !target.isBoolean()) || ScriptRuntime.NumberClass.isAssignableFrom(target.asClass()) || target.isCharacter()) {
 					return coerceToNumber(target, from);
 				} else {
 					return internalJsToJavaLast(from, target);
@@ -1665,7 +1715,7 @@ public class Context {
 						return unwrappedValue;
 					}
 					return internalJsToJavaLast(unwrappedValue, target);
-				} else if (target.asClass().isInterface() && (from instanceof NativeObject || from instanceof NativeFunction || from instanceof ArrowFunction)) {
+				} else if (target.asClass().isInterface() && (from instanceof NativeObject || (from instanceof Callable && from instanceof ScriptableObject))) {
 					// Try to use function/object as implementation of Java interface.
 					return createInterfaceAdapter(target, (ScriptableObject) from);
 				} else {

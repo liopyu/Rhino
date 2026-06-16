@@ -111,11 +111,7 @@ final class NativeError extends IdScriptableObject {
 			}
 			if (arglen >= 2) {
 				if (args[1] instanceof NativeObject options) {
-					Object cause = getProperty(options, "cause", cx);
-					if (cause != NOT_FOUND) {
-						putProperty(obj, "cause", cause, cx);
-						obj.setAttributes(cx, "cause", DONTENUM);
-					}
+					installCause(cx, options, obj);
 				} else {
 					putProperty(obj, "fileName", ScriptRuntime.toString(cx, args[1]), cx);
 					if (arglen >= 3) {
@@ -126,6 +122,57 @@ final class NativeError extends IdScriptableObject {
 			}
 		}
 		return obj;
+	}
+
+	static NativeError makeAggregate(Context cx, Scriptable scope, IdFunctionObject ctorObj, Object[] args) {
+		Scriptable proto = (Scriptable) (ctorObj.get(cx, "prototype", ctorObj));
+
+		NativeError obj = new NativeError(cx);
+		obj.setPrototype(proto);
+		obj.setParentScope(scope);
+
+		int arglen = args.length;
+		if (arglen >= 1) {
+			if (arglen >= 2) {
+				if (!Undefined.isUndefined(args[1])) {
+					putProperty(obj, "message", ScriptRuntime.toString(cx, args[1]), cx);
+					obj.setAttributes(cx, "message", DONTENUM);
+				}
+
+				if (arglen >= 3) {
+					if (args[2] instanceof NativeObject options) {
+						installCause(cx, options, obj);
+					} else {
+						putProperty(obj, "fileName", ScriptRuntime.toString(cx, args[2]), cx);
+						if (arglen >= 4) {
+							putProperty(obj, "lineNumber", ScriptRuntime.toInt32(cx, args[3]), cx);
+						}
+					}
+				}
+			}
+
+			final Object iterator = ScriptRuntime.callIterator(cx, scope, args[0]);
+			try (IteratorLikeIterable it = new IteratorLikeIterable(cx, scope, iterator)) {
+				java.util.List<Object> errors = new java.util.ArrayList<>();
+				for (Object o : it) {
+					errors.add(o);
+				}
+
+				Scriptable newArray = cx.newArray(scope, errors.toArray());
+				obj.defineProperty(cx, "errors", newArray, DONTENUM);
+			}
+		} else {
+			throw ScriptRuntime.typeError0(cx, "msg.iterable.expected");
+		}
+		return obj;
+	}
+
+	static void installCause(Context cx, NativeObject options, NativeError obj) {
+		Object cause = getProperty(options, "cause", cx);
+		if (cause != NOT_FOUND) {
+			putProperty(obj, "cause", cause, cx);
+			obj.setAttributes(cx, "cause", DONTENUM);
+		}
 	}
 
 	private static Object js_toString(Context cx, Scriptable thisObj) {

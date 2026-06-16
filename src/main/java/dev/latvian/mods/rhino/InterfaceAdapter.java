@@ -11,6 +11,7 @@ import dev.latvian.mods.rhino.type.TypeInfo;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.util.HashSet;
 
 /**
  * Adapter to use JS function as implementation of Java interfaces with
@@ -34,28 +35,31 @@ public class InterfaceAdapter {
 		InterfaceAdapter adapter;
 		adapter = (InterfaceAdapter) cx.getInterfaceAdapter(cl);
 		if (adapter == null) {
-			Method[] methods = cl.getMethods();
 			if (object instanceof Callable) {
+				Method[] methods = cl.getMethods();
 				// Check if interface can be implemented by a single function.
-				// We allow this if the interface has only one method or multiple
-				// methods with the same name (in which case they'd result in
-				// the same function to be invoked anyway).
-				int length = methods.length;
-				if (length == 0) {
-					throw Context.reportRuntimeError1("msg.no.empty.interface.conversion", cl.getName(), cx);
-				}
-				if (length > 1) {
-					String methodName = null;
-					for (Method method : methods) {
-						// there are multiple methods in the interface we inspect
-						// only abstract ones, they must all have the same name.
-						if (isFunctionalMethodCandidate(method)) {
-							if (methodName == null) {
-								methodName = method.getName();
-							} else if (!methodName.equals(method.getName())) {
-								throw Context.reportRuntimeError1("msg.no.function.interface.conversion", cl.getName(), cx);
-							}
+				// We allow this if the interface has only one abstract method
+				// or one default method (which can be invoked by name), or
+				// multiple methods with the same name.
+				HashSet<String> functionalMethodNames = new HashSet<>();
+				HashSet<String> defaultMethodNames = new HashSet<>();
+				for (Method method : methods) {
+					if (isFunctionalMethodCandidate(method)) {
+						functionalMethodNames.add(method.getName());
+						if (functionalMethodNames.size() > 1) {
+							break;
 						}
+					} else {
+						defaultMethodNames.add(method.getName());
+					}
+				}
+
+				boolean canConvert = (functionalMethodNames.size() == 1) || (functionalMethodNames.isEmpty() && defaultMethodNames.size() == 1);
+				if (!canConvert) {
+					if (functionalMethodNames.isEmpty() && defaultMethodNames.isEmpty()) {
+						throw Context.reportRuntimeError1("msg.no.empty.interface.conversion", cl.getName(), cx);
+					} else {
+						throw Context.reportRuntimeError1("msg.no.function.interface.conversion", cl.getName(), cx);
 					}
 				}
 			}

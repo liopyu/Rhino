@@ -14,4 +14,15 @@ public class ScriptRuntimeES6 {
 		}
 		return val;
 	}
+
+	/** Registers the symbol <code>[Symbol.species]</code> on the given constructor function. */
+	public static void addSymbolSpecies(Context cx, Scriptable scope, IdScriptableObject constructor) {
+		ScriptableObject speciesDescriptor = (ScriptableObject) cx.newObject(scope);
+		speciesDescriptor.put(cx, "enumerable", speciesDescriptor, Boolean.FALSE);
+		speciesDescriptor.put(cx, "configurable", speciesDescriptor, Boolean.TRUE);
+		speciesDescriptor.put(cx, "get", speciesDescriptor,
+				new LambdaFunction(cx, scope, "get [Symbol.species]", 0,
+						(Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> thisObj));
+		constructor.defineOwnProperty(cx, SymbolKey.SPECIES, speciesDescriptor, false);
+	}
 }

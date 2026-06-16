@@ -224,9 +224,7 @@ public final class NativeIterator extends IdScriptableObject {
 			return jsConstructor(cx, scope, thisObj, args);
 		}
 
-		if (!(thisObj instanceof NativeIterator iterator)) {
-			throw incompatibleCallError(f, cx);
-		}
+		NativeIterator iterator = ensureType(thisObj, NativeIterator.class, f, cx);
 
 		return switch (id) {
 			case Id_next -> iterator.objectIterator.nextExec(cx, scope);

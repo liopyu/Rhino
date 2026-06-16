@@ -108,6 +108,18 @@ public class LambdaConstructor extends LambdaFunction {
 	}
 
 	/**
+	 * Define a function property on the prototype of the constructor using a LambdaFunction under
+	 * the covers, with explicit attributes for both the property and the LambdaFunction's standard
+	 * properties.
+	 */
+	public void definePrototypeMethod(Context cx, Scriptable scope, String name, int length, Callable target, int attributes, int propertyAttributes) {
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		f.setStandardPropertyAttributes(propertyAttributes);
+		ScriptableObject proto = getPrototypeScriptable(cx);
+		proto.defineProperty(cx, name, f, attributes);
+	}
+
+	/**
 	 * Define a property that may be of any type on the prototype of this constructor.
 	 */
 	public void definePrototypeProperty(Context cx, String name, Object value, int attributes) {
@@ -127,6 +139,33 @@ public class LambdaConstructor extends LambdaFunction {
 	public void defineConstructorMethod(Context cx, Scriptable scope, String name, int length, Callable target) {
 		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
 		defineProperty(cx, name, f, DONTENUM);
+	}
+
+	/**
+	 * Define a function property directly on the constructor with explicit attributes.
+	 */
+	public void defineConstructorMethod(Context cx, Scriptable scope, String name, int length, Callable target, int attributes) {
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		defineProperty(cx, name, f, attributes);
+	}
+
+	/**
+	 * Define a function property directly on the constructor that is implemented under the
+	 * covers by a LambdaFunction, keyed by a Symbol.
+	 */
+	public void defineConstructorMethod(Context cx, Scriptable scope, Symbol key, String name, int length, Callable target, int attributes) {
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		defineProperty(cx, key, f, attributes);
+	}
+
+	/**
+	 * Define a function property directly on the constructor with explicit attributes and
+	 * overrides for the LambdaFunction's "name", "length", and "arity" property attributes.
+	 */
+	public void defineConstructorMethod(Context cx, Scriptable scope, String name, int length, Callable target, int attributes, int propertyAttributes) {
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		f.setStandardPropertyAttributes(propertyAttributes);
+		defineProperty(cx, name, f, attributes);
 	}
 
 	private ScriptableObject getPrototypeScriptable(Context cx) {

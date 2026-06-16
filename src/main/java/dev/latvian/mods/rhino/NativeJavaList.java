@@ -69,11 +69,51 @@ public class NativeJavaList extends NativeJavaObject {
 
 	@Override
 	public void put(Context cx, int index, Scriptable start, Object value) {
-		if (isWithValidIndex(index)) {
-			list.set(index, cx.jsToJava(value, listType));
+		if (index >= 0) {
+			Object javaValue = cx.jsToJava(value, listType);
+			if (index == list.size()) {
+				list.add(javaValue);
+			} else {
+				ensureCapacity(index + 1);
+				list.set(index, javaValue);
+			}
 			return;
 		}
 		super.put(cx, index, start, value);
+	}
+
+	@Override
+	public void put(Context cx, String name, Scriptable start, Object value) {
+		if (list != null && "length".equals(name)) {
+			setLength(cx, value);
+			return;
+		}
+		super.put(cx, name, start, value);
+	}
+
+	private void setLength(Context cx, Object val) {
+		double d = ScriptRuntime.toNumber(cx, val);
+		long longVal = ScriptRuntime.toUint32(d);
+		if (longVal != d || longVal > Integer.MAX_VALUE) {
+			String msg = ScriptRuntime.getMessage0("msg.arraylength.bad");
+			throw ScriptRuntime.rangeError(cx, msg);
+		}
+		if (longVal < list.size()) {
+			list.subList((int) longVal, list.size()).clear();
+		} else {
+			ensureCapacity((int) longVal);
+		}
+	}
+
+	private void ensureCapacity(int minCapacity) {
+		if (minCapacity > list.size()) {
+			if (list instanceof ArrayList) {
+				((ArrayList<?>) list).ensureCapacity(minCapacity);
+			}
+			while (minCapacity > list.size()) {
+				list.add(null);
+			}
+		}
 	}
 
 	@Override

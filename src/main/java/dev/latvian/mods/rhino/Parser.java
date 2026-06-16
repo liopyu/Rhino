@@ -2831,23 +2831,7 @@ public class Parser {
 
 			case Token.NUMBER: {
 				consumeToken();
-				String s = ts.getString();
-				if (this.inUseStrictDirective && ts.isNumberOldOctal()) {
-					reportError("msg.no.old.octal.strict");
-				}
-				if (ts.isNumberBinary()) {
-					s = "0b" + s;
-				}
-				if (ts.isNumberOldOctal()) {
-					s = "0" + s;
-				}
-				if (ts.isNumberOctal()) {
-					s = "0o" + s;
-				}
-				if (ts.isNumberHex()) {
-					s = "0x" + s;
-				}
-				return new NumberLiteral(ts.tokenBeg, s, ts.getNumber());
+				return createNumberLiteral();
 			}
 
 			case Token.STRING:
@@ -3355,7 +3339,7 @@ public class Parser {
 		switch (tt) {
 			case Token.NAME -> pname = createNameNode();
 			case Token.STRING -> pname = createStringLiteral();
-			case Token.NUMBER -> pname = new NumberLiteral(ts.tokenBeg, ts.getString(), ts.getNumber());
+			case Token.NUMBER -> pname = createNumberLiteral();
 			default -> {
 				if (TokenStream.isKeyword(ts.getString(), inUseStrictDirective)) {
 					// convert keyword to property name, e.g. ({if: 1})
@@ -3370,16 +3354,12 @@ public class Parser {
 	}
 
 	private ObjectProperty plainProperty(AstNode property, int ptt) throws IOException {
-		// Support, e.g., |var {x, y} = o| as destructuring shorthand
-		// for |var {x: x, y: y} = o|, as implemented in spidermonkey JS 1.8.
+		// Support shorthand object property names ({x, y}) and the destructuring equivalent (var {x, y} = o)
 		int tt = peekToken();
 		if ((tt == Token.COMMA || tt == Token.RC) && ptt == Token.NAME) {
-			if (!inDestructuringAssignment) {
-				reportError("msg.bad.object.init");
-			}
 			AstNode nn = new Name(property.getPosition(), property.getString());
 			ObjectProperty pn = new ObjectProperty();
-			pn.putProp(Node.DESTRUCTURING_SHORTHAND, Boolean.TRUE);
+			pn.putProp(Node.SHORTHAND_PROPERTY_NAME, Boolean.TRUE);
 			pn.setLeftAndRight(property, nn);
 			return pn;
 		} else if (tt == Token.ASSIGN) {
@@ -3505,6 +3485,23 @@ public class Parser {
 		chars.setValue(ts.getString());
 		chars.setRawValue(ts.getRawString());
 		return chars;
+	}
+
+	private NumberLiteral createNumberLiteral() {
+		String s = ts.getString();
+		if (this.inUseStrictDirective && ts.isNumberOldOctal()) {
+			reportError("msg.no.old.octal.strict");
+		}
+		if (ts.isNumberBinary()) {
+			s = "0b" + s;
+		} else if (ts.isNumberOldOctal()) {
+			s = "0" + s;
+		} else if (ts.isNumberOctal()) {
+			s = "0o" + s;
+		} else if (ts.isNumberHex()) {
+			s = "0x" + s;
+		}
+		return new NumberLiteral(ts.tokenBeg, s, ts.getNumber());
 	}
 
 	protected void checkActivationName(String name, int token) {

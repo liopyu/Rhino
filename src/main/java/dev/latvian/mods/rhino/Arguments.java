@@ -36,8 +36,9 @@ final class Arguments extends IdScriptableObject {
 	private static class ThrowTypeError extends BaseFunction {
 		private final String propertyName;
 
-		ThrowTypeError(String propertyName) {
+		ThrowTypeError(String propertyName, Context cx) {
 			this.propertyName = propertyName;
+			super.setInstanceIdAttributes(BaseFunction.Id_name, PERMANENT | READONLY | DONTENUM, cx);
 		}
 
 		@Override
@@ -407,10 +408,10 @@ final class Arguments extends IdScriptableObject {
 		if (!cx.isStrictMode()) {
 			return;
 		}
-		setGetterOrSetter(cx, "caller", 0, new ThrowTypeError("caller"), true);
-		setGetterOrSetter(cx, "caller", 0, new ThrowTypeError("caller"), false);
-		setGetterOrSetter(cx, "callee", 0, new ThrowTypeError("callee"), true);
-		setGetterOrSetter(cx, "callee", 0, new ThrowTypeError("callee"), false);
+		setGetterOrSetter(cx, "caller", 0, new ThrowTypeError("caller", cx), true);
+		setGetterOrSetter(cx, "caller", 0, new ThrowTypeError("caller", cx), false);
+		setGetterOrSetter(cx, "callee", 0, new ThrowTypeError("callee", cx), true);
+		setGetterOrSetter(cx, "callee", 0, new ThrowTypeError("callee", cx), false);
 		setAttributes(cx, "caller", DONTENUM | PERMANENT);
 		setAttributes(cx, "callee", DONTENUM | PERMANENT);
 		callerObj = null;

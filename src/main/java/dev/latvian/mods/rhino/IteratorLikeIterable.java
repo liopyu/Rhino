@@ -68,6 +68,9 @@ public class IteratorLikeIterable implements Iterable<Object>, Closeable {
 
 		@Override
 		public boolean hasNext() {
+			if (isDone) {
+				return false;
+			}
 			Object val = next.call(cx, scope, iterator, ScriptRuntime.EMPTY_OBJECTS);
 			// This will throw if "val" is not an object. 
 			// "getObjectPropNoWarn" won't, so do this as follows.
@@ -90,6 +93,16 @@ public class IteratorLikeIterable implements Iterable<Object>, Closeable {
 				throw new NoSuchElementException();
 			}
 			return nextVal;
+		}
+
+		/** Find out if "hasNext" returned done without invoking the function again. */
+		public boolean isDone() {
+			return isDone;
+		}
+
+		/** Manually set "done." Used for exception handling in promises. */
+		public void setDone(boolean done) {
+			this.isDone = done;
 		}
 	}
 }

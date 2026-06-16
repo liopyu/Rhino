@@ -55,14 +55,21 @@ public class BoundFunction extends BaseFunction {
 
 	@Override
 	public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] extraArgs) {
-		Scriptable callThis = boundThis != null ? boundThis : cx.getTopCallOrThrow();
+		Scriptable callThis = boundThis;
+		if (callThis == null && cx.hasTopCallScope()) {
+			callThis = cx.getTopCallScope();
+		}
+		if (callThis == null) {
+			callThis = getTopLevelScope(scope);
+		}
 		return targetFunction.call(cx, scope, callThis, concat(boundArgs, extraArgs));
 	}
 
 	@Override
 	public Scriptable construct(Context cx, Scriptable scope, Object[] extraArgs) {
-		if (targetFunction instanceof Function) {
-			return ((Function) targetFunction).construct(cx, scope, concat(boundArgs, extraArgs));
+        if (targetFunction instanceof Constructable) {
+            return ((Constructable) targetFunction)
+                    .construct(cx, scope, concat(boundArgs, extraArgs));
 		}
 		throw ScriptRuntime.typeError0(cx, "msg.not.ctor");
 	}
@@ -78,5 +85,13 @@ public class BoundFunction extends BaseFunction {
 	@Override
 	public int getLength() {
 		return length;
+	}
+
+	@Override
+	public String getFunctionName() {
+		if (targetFunction instanceof BaseFunction) {
+			return "bound " + ((BaseFunction) targetFunction).getFunctionName();
+		}
+		return "";
 	}
 }

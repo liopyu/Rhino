@@ -10,7 +10,7 @@ import java.util.Map;
  *
  * @see <a href="https://262.ecma-international.org/11.0/#sec-operations-on-objects">Abstract Operations - Operations on Objects</a>
  */
-class AbstractEcmaObjectOperations {
+public class AbstractEcmaObjectOperations {
 	enum INTEGRITY_LEVEL {
 		FROZEN,
 		SEALED
@@ -176,5 +176,89 @@ class AbstractEcmaObjectOperations {
 		}
 
 		return groups;
+	}
+
+	/**
+	 * Implement the ECMAScript abstract operation "SpeciesConstructor" defined in section 7.2.33 of
+	 * ECMA262.
+	 *
+	 * @see <a href="https://tc39.es/ecma262/#sec-speciesconstructor"></a>
+	 */
+	public static Constructable speciesConstructor(Context cx, Scriptable s, Constructable defaultConstructor) {
+		Object constructor = ScriptableObject.getProperty(s, "constructor", cx);
+		if (constructor == Scriptable.NOT_FOUND || Undefined.isUndefined(constructor)) {
+			return defaultConstructor;
+		}
+		if (!ScriptRuntime.isObject(constructor)) {
+			throw ScriptRuntime.typeError1(cx, "msg.arg.not.object", ScriptRuntime.typeof(cx, constructor).toString());
+		}
+		Object species = ScriptableObject.getProperty((Scriptable) constructor, SymbolKey.SPECIES, cx);
+		if (species == Scriptable.NOT_FOUND || species == null || Undefined.isUndefined(species)) {
+			return defaultConstructor;
+		}
+		if (!(species instanceof Constructable)) {
+			throw ScriptRuntime.typeError1(cx, "msg.not.ctor", ScriptRuntime.typeof(cx, species).toString());
+		}
+		return (Constructable) species;
+	}
+
+	/**
+	 * Set ( O, P, V, Throw)
+	 *
+	 * <p>https://262.ecma-international.org/12.0/#sec-set-o-p-v-throw
+	 */
+	static void put(Context cx, Scriptable o, String p, Object v, boolean isThrow) {
+		Scriptable base = ScriptableObject.getBase(o, p, cx);
+		if (base == null) {
+			base = o;
+		}
+		if (base instanceof ScriptableObject so) {
+			if (so.putImpl(cx, p, 0, o, v, isThrow)) {
+				return;
+			}
+			o.put(cx, p, o, v);
+		} else {
+			base.put(cx, p, o, v);
+		}
+	}
+
+	/**
+	 * Set ( O, P, V, Throw)
+	 *
+	 * <p>https://262.ecma-international.org/12.0/#sec-set-o-p-v-throw
+	 */
+	static void put(Context cx, Scriptable o, int p, Object v, boolean isThrow) {
+		Scriptable base = ScriptableObject.getBase(cx, o, p);
+		if (base == null) {
+			base = o;
+		}
+		if (base instanceof ScriptableObject so) {
+			if (so.putImpl(cx, null, p, o, v, isThrow)) {
+				return;
+			}
+			o.put(cx, p, o, v);
+		} else {
+			base.put(cx, p, o, v);
+		}
+	}
+
+	/**
+	 * Set ( O, P, V, Throw)
+	 *
+	 * <p>https://262.ecma-international.org/12.0/#sec-set-o-p-v-throw
+	 */
+	static void put(Context cx, Scriptable o, Symbol p, Object v, boolean isThrow) {
+		Scriptable base = ScriptableObject.getBase(cx, o, p);
+		if (base == null) {
+			base = o;
+		}
+		if (base instanceof ScriptableObject so) {
+			if (so.putImpl(cx, p, 0, o, v, isThrow)) {
+				return;
+			}
+			ScriptableObject.ensureSymbolScriptable(o, cx).put(cx, p, o, v);
+		} else {
+			ScriptableObject.ensureSymbolScriptable(base, cx).put(cx, p, o, v);
+		}
 	}
 }

@@ -1008,7 +1008,7 @@ public final class Interpreter extends Icode implements Evaluator {
 									frame = calleeFrame;
 									continue StateLoop;
 								}
-								if (!(lhs instanceof Function fun)) {
+								if (!(lhs instanceof Constructable ctor)) {
 									if (lhs == DBL_MRK) {
 										lhs = ScriptRuntime.wrapNumber(sDbl[stackTop]);
 									}
@@ -1016,7 +1016,7 @@ public final class Interpreter extends Icode implements Evaluator {
 								}
 
 								Object[] outArgs = getArgsArray(stack, sDbl, stackTop + 1, indexReg);
-								stack[stackTop] = fun.construct(cx, frame.scope, outArgs);
+								stack[stackTop] = ctor.construct(cx, frame.scope, outArgs);
 								continue;
 							}
 							case Token.TYPEOF: {

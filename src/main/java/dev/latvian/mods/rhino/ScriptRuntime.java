@@ -8,6 +8,7 @@ package dev.latvian.mods.rhino;
 
 import dev.latvian.mods.rhino.ast.FunctionNode;
 import dev.latvian.mods.rhino.regexp.NativeRegExp;
+import dev.latvian.mods.rhino.regexp.NativeRegExpStringIterator;
 import dev.latvian.mods.rhino.regexp.RegExp;
 import dev.latvian.mods.rhino.util.ClassVisibilityContext;
 import dev.latvian.mods.rhino.util.DefaultValueTypeHint;
@@ -22,6 +23,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 /**
@@ -102,7 +104,7 @@ public class ScriptRuntime {
 	 *
 	 * @see ScriptRuntime#toStringIdOrIndex(Context, Object)
 	 */
-	static final class StringIdOrIndex {
+    public static final class StringIdOrIndex {
 		final String stringId;
 		final int index;
 
@@ -114,6 +116,14 @@ public class ScriptRuntime {
 		StringIdOrIndex(int index) {
 			this.stringId = null;
 			this.index = index;
+		}
+
+		public String getStringId() {
+			return stringId;
+		}
+
+		public int getIndex() {
+			return index;
 		}
 	}
 
@@ -221,11 +231,13 @@ public class ScriptRuntime {
 		NativeStringIterator.init(scope, sealed, cx);
 
 		NativeRegExp.init(cx, scope, sealed);
+		NativeRegExpStringIterator.init(scope, sealed, cx);
 
 		NativeSymbol.init(cx, scope, sealed);
 		NativeCollectionIterator.init(scope, NativeSet.ITERATOR_TAG, sealed, cx);
 		NativeCollectionIterator.init(scope, NativeMap.ITERATOR_TAG, sealed, cx);
 		NativeMap.init(cx, scope, sealed);
+		NativePromise.init(cx, scope, sealed);
 		NativeSet.init(cx, scope, sealed);
 		NativeWeakMap.init(scope, sealed, cx);
 		NativeWeakSet.init(scope, sealed, cx);
@@ -936,6 +948,12 @@ public class ScriptRuntime {
 		} else if (Undefined.isUndefined(val)) {
 			throw typeError0(cx, "msg.undef.to.object");
 		} else if (isSymbol(val)) {
+			if (val instanceof SymbolKey) {
+				NativeSymbol result = new NativeSymbol((SymbolKey) val);
+				setBuiltinProtoAndParent(cx, scope, result, TopLevel.Builtins.Symbol);
+				return result;
+			}
+
 			NativeSymbol result = new NativeSymbol((NativeSymbol) val);
 			setBuiltinProtoAndParent(cx, scope, result, TopLevel.Builtins.Symbol);
 			return result;
@@ -966,7 +984,7 @@ public class ScriptRuntime {
 
 	public static Scriptable newObject(Context cx, Scriptable scope, String constructorName, Object[] args) {
 		scope = ScriptableObject.getTopLevelScope(scope);
-		Function ctor = getExistingCtor(cx, scope, constructorName);
+		Constructable ctor = getExistingCtor(cx, scope, constructorName);
 		if (args == null) {
 			args = ScriptRuntime.EMPTY_OBJECTS;
 		}
@@ -975,7 +993,7 @@ public class ScriptRuntime {
 
 	public static Scriptable newBuiltinObject(Context cx, Scriptable scope, TopLevel.Builtins type, Object[] args) {
 		scope = ScriptableObject.getTopLevelScope(scope);
-		Function ctor = TopLevel.getBuiltinCtor(cx, scope, type);
+		Constructable ctor = TopLevel.getBuiltinCtor(cx, scope, type);
 		if (args == null) {
 			args = ScriptRuntime.EMPTY_OBJECTS;
 		}
@@ -984,7 +1002,7 @@ public class ScriptRuntime {
 
 	static Scriptable newNativeError(Context cx, Scriptable scope, TopLevel.NativeErrors type, Object[] args) {
 		scope = ScriptableObject.getTopLevelScope(scope);
-		Function ctor = TopLevel.getNativeErrorCtor(cx, scope, type);
+		Constructable ctor = TopLevel.getNativeErrorCtor(cx, scope, type);
 		if (args == null) {
 			args = ScriptRuntime.EMPTY_OBJECTS;
 		}
@@ -1026,6 +1044,30 @@ public class ScriptRuntime {
 			return 0;
 		}
 		return (long) Math.min(len, NativeNumber.MAX_SAFE_INTEGER);
+	}
+
+	public static long toLength(Context cx, Object value) {
+		double len = toInteger(cx, value);
+		if (len <= 0.0) {
+			return 0;
+		}
+		return (long) Math.min(len, NativeNumber.MAX_SAFE_INTEGER);
+	}
+
+	/** Implements the abstract operation AdvanceStringIndex. See ECMAScript spec 22.2.7.3 */
+	public static long advanceStringIndex(String string, long index, boolean unicode) {
+		if (index >= NativeNumber.MAX_SAFE_INTEGER) {
+			Kit.codeBug();
+		}
+		if (!unicode) {
+			return index + 1;
+		}
+		int length = string.length();
+		if (index + 1 > length) {
+			return index + 1;
+		}
+		int cp = string.codePointAt((int) index);
+		return index + Character.charCount(cp);
 	}
 
 	/**
@@ -1074,10 +1116,10 @@ public class ScriptRuntime {
 		return ScriptableObject.getProperty(scope, id, cx);
 	}
 
-	static Function getExistingCtor(Context cx, Scriptable scope, String constructorName) {
+	public static Constructable getExistingCtor(Context cx, Scriptable scope, String constructorName) {
 		Object ctorVal = ScriptableObject.getProperty(scope, constructorName, cx);
-		if (ctorVal instanceof Function) {
-			return (Function) ctorVal;
+		if (ctorVal instanceof Constructable) {
+			return (Constructable) ctorVal;
 		}
 		if (ctorVal == Scriptable.NOT_FOUND) {
 			throw Context.reportRuntimeError1("msg.ctor.not.found", constructorName, cx);
@@ -1177,10 +1219,30 @@ public class ScriptRuntime {
 	 */
 	static Object getIndexObject(String s) {
 		long indexTest = indexFromString(s);
-		if (indexTest >= 0) {
+		if (indexTest >= 0 && indexTest <= Integer.MAX_VALUE) {
 			return (int) indexTest;
 		}
 		return s;
+	}
+
+	/**
+	 * If "arg" is a "canonical numeric index," any number constructed from a string that doesn't
+	 * have extra whitespace or non-standard formatting, return it -- otherwise return an empty
+	 * option. Defined in ECMA 7.1.21.
+	 */
+	public static Optional<Double> canonicalNumericIndexString(Context cx, String arg) {
+		if ("-0".equals(arg)) {
+			return Optional.of(Double.NEGATIVE_INFINITY);
+		}
+		double num = toNumber(cx, arg);
+		if (Double.isNaN(num)) {
+			return Optional.empty();
+		}
+		String numStr = toString(cx, num);
+		if (numStr.equals(arg)) {
+			return Optional.of(num);
+		}
+		return Optional.empty();
 	}
 
 	/**
@@ -1200,9 +1262,12 @@ public class ScriptRuntime {
 	 * is index. In this case return null and make the index available
 	 * as ScriptRuntime.lastIndexResult(cx). Otherwise return toString(id).
 	 */
-	static StringIdOrIndex toStringIdOrIndex(Context cx, Object id) {
+	public static StringIdOrIndex toStringIdOrIndex(Context cx, Object id) {
 		if (id instanceof Number) {
 			double d = ((Number) id).doubleValue();
+			if (d < 0.0) {
+				return new StringIdOrIndex(toString(cx, id));
+			}
 			int index = (int) d;
 			if (index == d) {
 				return new StringIdOrIndex(index);
@@ -1216,7 +1281,7 @@ public class ScriptRuntime {
 			s = toString(cx, id);
 		}
 		long indexTest = indexFromString(s);
-		if (indexTest >= 0) {
+		if (indexTest >= 0 && indexTest <= Integer.MAX_VALUE) {
 			return new StringIdOrIndex((int) indexTest);
 		}
 		return new StringIdOrIndex(s);
@@ -1313,7 +1378,7 @@ public class ScriptRuntime {
 		}
 
 		int index = (int) dblIndex;
-		if (index == dblIndex) {
+		if (index == dblIndex && index >= 0) {
 			return getObjectIndex(cx, sobj, index);
 		}
 		String s = toString(cx, dblIndex);
@@ -1387,7 +1452,7 @@ public class ScriptRuntime {
 		}
 
 		int index = (int) dblIndex;
-		if (index == dblIndex) {
+		if (index == dblIndex && index >= 0) {
 			return setObjectIndex(cx, sobj, index, value);
 		}
 		String s = toString(cx, dblIndex);
@@ -2742,8 +2807,13 @@ public class ScriptRuntime {
 			} else if (t instanceof WrappedException we) {
 				re = we;
 				javaException = we.getWrappedException();
-				type = TopLevel.NativeErrors.JavaException;
-				errorMsg = javaException.getClass().getName() + ": " + javaException.getMessage();
+				if (!cx.visibleToScripts(javaException.getClass().getName(), ClassVisibilityContext.EXCEPTION)) {
+					type = TopLevel.NativeErrors.InternalError;
+					errorMsg = javaException.getMessage();
+				} else {
+					type = TopLevel.NativeErrors.JavaException;
+					errorMsg = javaException.getClass().getName() + ": " + javaException.getMessage();
+				}
 			} else if (t instanceof EvaluatorException ee) {
 				// Pure evaluator exception, nor WrappedException instance
 				re = ee;
@@ -3018,7 +3088,7 @@ public class ScriptRuntime {
 	}
 
 	public static Object[] getArrayElements(Context cx, Scriptable object) {
-		long longLen = NativeArray.getLengthProperty(cx, object, false);
+		long longLen = NativeArray.getLengthProperty(cx, object);
 		if (longLen > Integer.MAX_VALUE) {
 			// arrays beyond  MAX_INT is not in Java in any case
 			throw new IllegalArgumentException();
