@@ -62,7 +62,7 @@ public class FunctionGoodiesTest {
 			1,2
 			""");
 	}
-	
+
 	@Test
 	public void defaultParamBackref() {
 		TEST.test("defaultParamBackref", """

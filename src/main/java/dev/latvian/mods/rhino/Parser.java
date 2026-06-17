@@ -728,6 +728,23 @@ public class Parser {
 		return pn;
 	}
 
+	/**
+	 * Builds the destructuring-assignment helper for each destructured parameter and
+	 * stores it on that parameter's pattern node under {@link Node#DESTRUCTURING_PARAMS}.
+	 * {@link IRFactory} reads it back while walking {@link FunctionNode#getParams()} in
+	 * declaration order, together with the other default checks. Storing just a single
+	 * assign per pattern (rather than a single combined node) lets default expressions
+	 * refer back to earlier destructured bindings and vice versa.
+	 */
+	private void setupDestructuringParams(Map<String, Node> destructuring, Map<String, AstNode> destructuringDefault) {
+		for (Map.Entry<String, Node> param : destructuring.entrySet()) {
+			Node pattern = param.getValue();
+			AstNode defaultValue = destructuringDefault == null ? null : destructuringDefault.get(param.getKey());
+			Node assign = createDestructuringAssignment(Token.VAR, pattern, createName(param.getKey()), defaultValue);
+			pattern.putProp(Node.DESTRUCTURING_PARAMS, assign);
+		}
+	}
+
 	private void parseFunctionParams(FunctionNode fnNode) throws IOException {
 		if (matchToken(Token.RP, true)) {
 			fnNode.setRp(ts.tokenBeg - fnNode.getPosition());
@@ -826,18 +843,7 @@ public class Parser {
 		} while (matchToken(Token.COMMA, true));
 
 		if (destructuring != null) {
-			Node destructuringNode = new Node(Token.COMMA);
-			// Add assignment helper for each destructuring parameter
-			for (Map.Entry<String, Node> param : destructuring.entrySet()) {
-				AstNode defaultValue = null;
-				if (destructuringDefault != null) {
-					defaultValue = destructuringDefault.get(param.getKey());
-				}
-				Node assign = createDestructuringAssignment(Token.VAR, param.getValue(), createName(param.getKey()), defaultValue);
-				destructuringNode.addChildToBack(assign);
-
-			}
-			fnNode.putProp(Node.DESTRUCTURING_PARAMS, destructuringNode);
+			setupDestructuringParams(destructuring, destructuringDefault);
 		}
 
 		if (mustMatchToken(Token.RP, "msg.no.paren.after.parms", true)) {
@@ -963,18 +969,7 @@ public class Parser {
 			}
 
 			if (!destructuring.isEmpty()) {
-				Node destructuringNode = new Node(Token.COMMA);
-				// Add assignment helper for each destructuring parameter
-				for (Map.Entry<String, Node> param : destructuring.entrySet()) {
-					AstNode defaultValue = null;
-					if (destructuringDefault != null) {
-						defaultValue = destructuringDefault.get(param.getKey());
-					}
-					Node assign = createDestructuringAssignment(Token.VAR, param.getValue(), createName(param.getKey()), defaultValue);
-					destructuringNode.addChildToBack(assign);
-
-				}
-				fnNode.putProp(Node.DESTRUCTURING_PARAMS, destructuringNode);
+				setupDestructuringParams(destructuring, destructuringDefault);
 			}
 
 			fnNode.setBody(parseFunctionBody(FunctionNode.ARROW_FUNCTION, fnNode));

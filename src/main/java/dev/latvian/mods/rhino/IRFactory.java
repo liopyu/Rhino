@@ -13,7 +13,6 @@ import dev.latvian.mods.rhino.ast.Assignment;
 import dev.latvian.mods.rhino.ast.AstNode;
 import dev.latvian.mods.rhino.ast.AstRoot;
 import dev.latvian.mods.rhino.ast.AstSymbol;
-import dev.latvian.mods.rhino.ast.FunctionNode;
 import dev.latvian.mods.rhino.ast.Block;
 import dev.latvian.mods.rhino.ast.CatchClause;
 import dev.latvian.mods.rhino.ast.ComputedPropertyKey;
@@ -38,7 +37,6 @@ import dev.latvian.mods.rhino.ast.LabeledStatement;
 import dev.latvian.mods.rhino.ast.LetNode;
 import dev.latvian.mods.rhino.ast.Name;
 import dev.latvian.mods.rhino.ast.NewExpression;
-import dev.latvian.mods.rhino.ast.NumberLiteral;
 import dev.latvian.mods.rhino.ast.ObjectLiteral;
 import dev.latvian.mods.rhino.ast.ObjectProperty;
 import dev.latvian.mods.rhino.ast.ParenthesizedExpression;
@@ -891,30 +889,37 @@ public final class IRFactory extends Parser {
 
 		PerFunctionVariables savedVars = new PerFunctionVariables(fn);
 		try {
-			// If we start needing to record much more codegen metadata during
-			// function parsing, we should lump it all into a helper class.
-			Node destructuring = (Node) fn.getProp(Node.DESTRUCTURING_PARAMS);
-			fn.removeProp(Node.DESTRUCTURING_PARAMS);
-
 			int lineno = fn.getBody().getLineno();
 			++nestingOfFunction;  // only for body, not params
 			Node body = transform(fn.getBody());
 
-			if (destructuring != null) {
-				body.addChildToFront(new Node(Token.EXPR_VOID, destructuring, lineno, 0));
-			}
-
-			/* Process simple default parameters: prepend `if (name === undefined) name = expr;` */
+			// fork: apparently this is a bug upstream as well, but we need to build
+			// default checks and destructuring assignments in order of declaration
+			// so that we can refer back to earlier defaults / destructures.
+			// upstream does destructuring and then defaults, which breaks for i.e.
+			// f(a = 1, {b = a} = {}) (an admittedly niche case)
 			List<Object> defaultParams = fn.getDefaultParams();
-			if (defaultParams != null) {
-				int bodyLineno = body.getLineno();
-				for (int i = defaultParams.size() - 1; i > 0; i -= 2) {
-					if (defaultParams.get(i) instanceof AstNode rhs && defaultParams.get(i - 1) instanceof String name) {
-						Node cond = new Node(Token.SHEQ, createName(name), createName("undefined"));
-						Node assignNode = new Node(Token.EXPR_VOID, createAssignment(Token.ASSIGN, createName(name), transform(rhs)), bodyLineno, 0);
-						body.addChildToFront(createIf(cond, assignNode, null, bodyLineno, 0));
+			int bodyLineno = body.getLineno();
+			List<Node> prologue = new ArrayList<>();
+			for (AstNode param : fn.getParams()) {
+				if (param instanceof Name name) {
+					String paramName = name.getIdentifier();
+					if (defaultParams != null) {
+						for (int i = 0; i < defaultParams.size(); i += 2) {
+							if (defaultParams.get(i).equals(paramName) && defaultParams.get(i + 1) instanceof AstNode rhs) {
+								Node cond = new Node(Token.SHEQ, createName(paramName), createName("undefined"));
+								Node assignNode = new Node(Token.EXPR_VOID, createAssignment(Token.ASSIGN, createName(paramName), transform(rhs)), bodyLineno, 0);
+								prologue.add(createIf(cond, assignNode, null, bodyLineno, 0));
+								break;
+							}
+						}
 					}
+				} else if (param.getProp(Node.DESTRUCTURING_PARAMS) instanceof Node assign) {
+					prologue.add(new Node(Token.EXPR_VOID, assign, lineno, 0));
 				}
+			}
+			for (int i = prologue.size() - 1; i >= 0; i--) {
+				body.addChildToFront(prologue.get(i));
 			}
 
 			/* transform nodes used as default parameters */
@@ -965,18 +970,8 @@ public final class IRFactory extends Parser {
 
 		PerFunctionVariables savedVars = new PerFunctionVariables(fn);
 		try {
-			// If we start needing to record much more codegen metadata during
-			// function parsing, we should lump it all into a helper class.
-			Node destructuring = (Node) fn.getProp(Node.DESTRUCTURING_PARAMS);
-			fn.removeProp(Node.DESTRUCTURING_PARAMS);
-
-			int lineno = node.lineno;
 			++nestingOfFunction;  // only for body, not params
 			Node body = genExprTransformHelper(node);
-
-			if (destructuring != null) {
-				body.addChildToFront(new Node(Token.EXPR_VOID, destructuring, lineno, 0));
-			}
 
 			int syntheticType = fn.getFunctionType();
 			pn = initFunction(fn, index, body, syntheticType);
