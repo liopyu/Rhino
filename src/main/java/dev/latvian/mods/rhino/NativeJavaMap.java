@@ -9,11 +9,17 @@ import dev.latvian.mods.rhino.type.TypeInfo;
 import dev.latvian.mods.rhino.util.Deletable;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class NativeJavaMap extends NativeJavaObject {
+	static void init(ScriptableObject scope, boolean sealed, Context cx) {
+		NativeJavaMapIterator.init(scope, sealed, cx);
+	}
+
 	public final Map map;
 	public final TypeInfo mapKeyType;
 	public final TypeInfo mapValueType;
@@ -73,6 +79,11 @@ public class NativeJavaMap extends NativeJavaObject {
 	}
 
 	@Override
+	public boolean has(Context cx, Symbol key, Scriptable start) {
+		return SymbolKey.ITERATOR.equals(key);
+	}
+
+	@Override
 	public Object get(Context cx, String name, Scriptable start) {
 		Object key = toMapKey(cx, name);
 		if (safeHas(key)) {
@@ -88,6 +99,14 @@ public class NativeJavaMap extends NativeJavaObject {
 			return cx.javaToJS(map.get(key), start, mapValueType);
 		}
 		return super.get(cx, index, start);
+	}
+
+	@Override
+	public Object get(Context cx, Symbol key, Scriptable start) {
+		if (SymbolKey.ITERATOR.equals(key)) {
+			return symbol_iterator;
+		}
+		return super.get(cx, key, start);
 	}
 
 	@Override
@@ -137,5 +156,71 @@ public class NativeJavaMap extends NativeJavaObject {
 
 	private boolean hasOwnProperty(Context cx, Object[] args) {
 		return safeHas(toMapKey(cx, ScriptRuntime.toString(cx, args[0])));
+	}
+
+	private static final Callable symbol_iterator = (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> {
+		if (!(thisObj instanceof NativeJavaMap njm)) {
+			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", SymbolKey.ITERATOR);
+		}
+		return new NativeJavaMapIterator(cx, scope, njm);
+	};
+
+	/**
+	 * Symbol.iterator implementation for NativeJavaMap: yields a JS array
+	 * {@code [key, value]} for each entry in the wrapped Map.
+	 */
+	private static final class NativeJavaMapIterator extends ES6Iterator {
+		private static final String ITERATOR_TAG = "JavaMapIterator";
+
+		static void init(ScriptableObject scope, boolean sealed, Context cx) {
+			init(scope, sealed, new NativeJavaMapIterator(), ITERATOR_TAG, cx);
+		}
+
+		/**
+		 * Only for constructing the prototype object.
+		 */
+		private NativeJavaMapIterator() {
+			super();
+			this.iterator = Collections.emptyIterator();
+			this.keyType = TypeInfo.NONE;
+			this.valueType = TypeInfo.NONE;
+		}
+
+		NativeJavaMapIterator(Context cx, Scriptable scope, NativeJavaMap njm) {
+			super(scope, ITERATOR_TAG, cx);
+			this.iterator = njm.map.entrySet().iterator();
+			this.keyType = njm.mapKeyType;
+			this.valueType = njm.mapValueType;
+		}
+
+		@Override
+		public String getClassName() {
+			return "Java Map Iterator";
+		}
+
+		@Override
+		protected boolean isDone(Context cx, Scriptable scope) {
+			return !iterator.hasNext();
+		}
+
+		@Override
+		protected Object nextValue(Context cx, Scriptable scope) {
+			if (!iterator.hasNext()) {
+				return cx.newArray(scope, new Object[]{Undefined.INSTANCE, Undefined.INSTANCE});
+			}
+			Map.Entry e = iterator.next();
+			Object key = cx.javaToJS(e.getKey(), scope, keyType);
+			Object value = cx.javaToJS(e.getValue(), scope, valueType);
+			return cx.newArray(scope, new Object[]{key, value});
+		}
+
+		@Override
+		protected String getTag() {
+			return ITERATOR_TAG;
+		}
+
+		private final Iterator<Map.Entry> iterator;
+		private final TypeInfo keyType;
+		private final TypeInfo valueType;
 	}
 }

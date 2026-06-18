@@ -242,6 +242,9 @@ public class ScriptRuntime {
 		NativeWeakMap.init(scope, sealed, cx);
 		NativeWeakSet.init(scope, sealed, cx);
 
+		NativeJavaObject.init(scope, sealed, cx);
+		NativeJavaMap.init(scope, sealed, cx);
+
 		if (scope instanceof TopLevel) {
 			((TopLevel) scope).cacheBuiltins(scope, sealed, cx);
 		}
@@ -1750,11 +1753,6 @@ public class ScriptRuntime {
 		Object iterator = x.obj instanceof SymbolScriptable ? ScriptableObject.getProperty(x.obj, SymbolKey.ITERATOR, cx) : null;
 
 		if (!(iterator instanceof Callable f)) {
-			if (iterator instanceof IdEnumerationIterator) {
-				x.iterator = (IdEnumerationIterator) iterator;
-				return x;
-			}
-
 			throw typeError1(cx, "msg.not.iterable", toString(cx, x.obj));
 		}
 
@@ -1762,11 +1760,6 @@ public class ScriptRuntime {
 		Object v = f.call(cx, scope, x.obj, EMPTY_OBJECTS);
 
 		if (!(v instanceof Scriptable)) {
-			if (v instanceof IdEnumerationIterator) {
-				x.iterator = (IdEnumerationIterator) v;
-				return x;
-			}
-
 			throw typeError1(cx, "msg.not.iterable", toString(cx, x.obj));
 		}
 

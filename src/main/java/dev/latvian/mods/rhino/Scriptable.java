@@ -10,8 +10,6 @@ package dev.latvian.mods.rhino;
 
 import dev.latvian.mods.rhino.util.DefaultValueTypeHint;
 
-import java.util.function.Consumer;
-
 /**
  * This is interface that all objects in JavaScript must implement.
  * The interface provides for the management of properties and for
@@ -31,7 +29,7 @@ import java.util.function.Consumer;
  * @see ScriptableObject
  */
 
-public interface Scriptable extends IdEnumerationIterator {
+public interface Scriptable {
 
 	/**
 	 * Value returned from <code>get</code> if the property is not
@@ -324,35 +322,6 @@ public interface Scriptable extends IdEnumerationIterator {
 	 * @return an implementation dependent value
 	 */
 	boolean hasInstance(Context cx, Scriptable instance);
-
-	@Override
-	default boolean enumerationIteratorHasNext(Context cx, Consumer<Object> currentId) {
-		Object v = ScriptableObject.getProperty(this, ES6Iterator.NEXT_METHOD, cx);
-
-		if (!(v instanceof Callable f)) {
-			throw ScriptRuntime.notFunctionError(cx, this, ES6Iterator.NEXT_METHOD);
-		}
-
-		Scriptable scope = getParentScope();
-		Object r = f.call(cx, scope, this, ScriptRuntime.EMPTY_OBJECTS);
-		Scriptable iteratorResult = ScriptRuntime.toObject(cx, scope, r);
-		currentId.accept(ScriptableObject.getProperty(iteratorResult, ES6Iterator.VALUE_PROPERTY, cx));
-		Object done = ScriptableObject.getProperty(iteratorResult, ES6Iterator.DONE_PROPERTY, cx);
-		return done == Scriptable.NOT_FOUND || !ScriptRuntime.toBoolean(cx, done);
-	}
-
-	@Override
-	default boolean enumerationIteratorNext(Context cx, Consumer<Object> currentId) throws JavaScriptException {
-		Object v = ScriptableObject.getProperty(this, ES6Iterator.NEXT_METHOD, cx);
-
-		if (!(v instanceof Callable f)) {
-			return false;
-		}
-
-		Scriptable scope = getParentScope();
-		currentId.accept(f.call(cx, scope, this, ScriptRuntime.EMPTY_OBJECTS));
-		return true;
-	}
 
 	default MemberType getTypeOf() {
 		return MemberType.OBJECT;

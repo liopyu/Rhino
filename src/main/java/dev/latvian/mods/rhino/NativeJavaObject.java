@@ -12,10 +12,10 @@ import dev.latvian.mods.rhino.type.TypeInfo;
 import dev.latvian.mods.rhino.type.VariableTypeInfo;
 import dev.latvian.mods.rhino.util.DefaultValueTypeHint;
 import dev.latvian.mods.rhino.util.Deletable;
-import dev.latvian.mods.rhino.util.JavaIteratorWrapper;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 
@@ -30,6 +30,10 @@ import java.util.Objects;
  */
 
 public class NativeJavaObject implements Scriptable, SymbolScriptable, Wrapper {
+	static void init(ScriptableObject scope, boolean sealed, Context cx) {
+		JavaIterableIterator.init(scope, sealed, cx);
+	}
+
 	/**
 	 * The prototype of this object.
 	 */
@@ -164,8 +168,8 @@ public class NativeJavaObject implements Scriptable, SymbolScriptable, Wrapper {
 
 	@Override
 	public Object get(Context cx, Symbol key, Scriptable start) {
-		if (javaObject instanceof Iterable<?> itr && SymbolKey.ITERATOR.equals(key)) {
-			return new JavaIteratorWrapper(itr.iterator());
+		if (javaObject instanceof Iterable<?> && SymbolKey.ITERATOR.equals(key)) {
+			return symbol_iterator;
 		}
 
 		// Native Java objects have no Symbol members
@@ -343,5 +347,62 @@ public class NativeJavaObject implements Scriptable, SymbolScriptable, Wrapper {
 	@Override
 	public int hashCode() {
 		return javaObject == null ? 0 : javaObject.hashCode();
+	}
+
+	private static final Callable symbol_iterator = (Context cx, Scriptable scope, Scriptable thisObj, Object[] args) -> {
+		if (!(thisObj instanceof NativeJavaObject)) {
+			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", SymbolKey.ITERATOR);
+		}
+		Object javaObject = ((NativeJavaObject) thisObj).javaObject;
+		if (!(javaObject instanceof Iterable)) {
+			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", SymbolKey.ITERATOR);
+		}
+		return new JavaIterableIterator(cx, scope, (Iterable<?>) javaObject);
+	};
+
+	private static final class JavaIterableIterator extends ES6Iterator {
+		private static final String ITERATOR_TAG = "JavaIterableIterator";
+
+		static void init(ScriptableObject scope, boolean sealed, Context cx) {
+			init(scope, sealed, new JavaIterableIterator(), ITERATOR_TAG, cx);
+		}
+
+		/**
+		 * Only for constructing the prototype object.
+		 */
+		private JavaIterableIterator() {
+			super();
+			this.iterator = Collections.emptyIterator();
+		}
+
+		JavaIterableIterator(Context cx, Scriptable scope, Iterable<?> iterable) {
+			super(scope, ITERATOR_TAG, cx);
+			this.iterator = iterable.iterator();
+		}
+
+		@Override
+		public String getClassName() {
+			return "Java Iterable Iterator";
+		}
+
+		@Override
+		protected boolean isDone(Context cx, Scriptable scope) {
+			return !iterator.hasNext();
+		}
+
+		@Override
+		protected Object nextValue(Context cx, Scriptable scope) {
+			if (!iterator.hasNext()) {
+				return Undefined.INSTANCE;
+			}
+			return cx.javaToJS(iterator.next(), scope);
+		}
+
+		@Override
+		protected String getTag() {
+			return ITERATOR_TAG;
+		}
+
+		private final Iterator<?> iterator;
 	}
 }

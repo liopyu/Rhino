@@ -1,7 +1,5 @@
 package dev.latvian.mods.rhino;
 
-import java.util.function.Consumer;
-
 /**
  * This is the enumeration needed by the for..in statement.
  * <p>
@@ -16,8 +14,7 @@ import java.util.function.Consumer;
  * avoid maintaining a hash table and instead perform lookups
  * to see if a given property has already been enumerated.
  */
-public class IdEnumeration implements Consumer<Object> {
-	public Object tempResult;
+public class IdEnumeration {
 	Scriptable obj;
 	Object[] ids;
 	ObjToIntMap used;
@@ -26,35 +23,26 @@ public class IdEnumeration implements Consumer<Object> {
 	int enumType; /* one of ENUM_INIT_KEYS, ENUM_INIT_VALUES, ENUM_INIT_ARRAY, ENUMERATE_VALUES_IN_ORDER */
 	// if true, integer ids will be returned as numbers rather than strings
 	boolean enumNumbers;
-	IdEnumerationIterator iterator;
+	Scriptable iterator;
 
 	public Boolean next(Context cx) {
 		if (iterator != null) {
 			if (enumType == ScriptRuntime.ENUMERATE_VALUES_IN_ORDER) {
-				if (iterator.enumerationIteratorHasNext(cx, this)) {
-					currentId = tempResult;
-					tempResult = null;
-					return Boolean.TRUE;
-				} else {
-					tempResult = null;
-					return Boolean.FALSE;
-				}
+				return enumNextInOrder(cx);
 			}
 
+			Object v = ScriptableObject.getProperty(iterator, ES6Iterator.NEXT_METHOD, cx);
+			if (!(v instanceof Callable f)) {
+				return Boolean.FALSE;
+			}
 			try {
-				if (iterator.enumerationIteratorNext(cx, this)) {
-					currentId = tempResult;
-				}
-
+				currentId = f.call(cx, iterator.getParentScope(), iterator, ScriptRuntime.EMPTY_OBJECTS);
 				return Boolean.TRUE;
 			} catch (JavaScriptException e) {
 				if (e.getValue() instanceof NativeIterator.StopIteration) {
 					return Boolean.FALSE;
 				}
-
 				throw e;
-			} finally {
-				tempResult = null;
 			}
 		}
 
@@ -87,6 +75,22 @@ public class IdEnumeration implements Consumer<Object> {
 			}
 			return Boolean.TRUE;
 		}
+	}
+
+	private Boolean enumNextInOrder(Context cx) {
+		Object v = ScriptableObject.getProperty(iterator, ES6Iterator.NEXT_METHOD, cx);
+		if (!(v instanceof Callable f)) {
+			throw ScriptRuntime.notFunctionError(cx, iterator, ES6Iterator.NEXT_METHOD);
+		}
+		Scriptable scope = iterator.getParentScope();
+		Object r = f.call(cx, scope, iterator, ScriptRuntime.EMPTY_OBJECTS);
+		Scriptable iteratorResult = ScriptRuntime.toObject(cx, scope, r);
+		Object done = ScriptableObject.getProperty(iteratorResult, ES6Iterator.DONE_PROPERTY, cx);
+		if (done != Scriptable.NOT_FOUND && ScriptRuntime.toBoolean(cx, done)) {
+			return Boolean.FALSE;
+		}
+		currentId = ScriptableObject.getProperty(iteratorResult, ES6Iterator.VALUE_PROPERTY, cx);
+		return Boolean.TRUE;
 	}
 
 	public void changeObject(Context cx) {
@@ -161,53 +165,4 @@ public class IdEnumeration implements Consumer<Object> {
 
 		return getId(cx);
 	}
-
-	@Override
-	public void accept(Object o) {
-		tempResult = o;
-	}
-
-	/*
-	public static Boolean enumNext(Object enumObj) {
-		IdEnumeration x = (IdEnumeration) enumObj;
-		if (x.iterator != null) {
-			if (x.enumType == ENUMERATE_VALUES_IN_ORDER) {
-				return enumNextInOrder(x);
-			}
-			Object v = ScriptableObject.getProperty(x.iterator, "next");
-			if (!(v instanceof Callable f)) {
-				return Boolean.FALSE;
-			}
-			Context cx = Context.getContext();
-			try {
-				x.currentId = f.call(cx, x.iterator.getParentScope(), x.iterator, emptyArgs);
-				return Boolean.TRUE;
-			} catch (JavaScriptException e) {
-				if (e.getValue() instanceof NativeIterator.StopIteration) {
-					return Boolean.FALSE;
-				}
-				throw e;
-			}
-		}
-
-		// for (; ; )
-	}
-
-	private static Boolean enumNextInOrder(IdEnumeration enumObj) {
-		Object v = ScriptableObject.getProperty(enumObj.iterator, ES6Iterator.NEXT_METHOD);
-		if (!(v instanceof Callable f)) {
-			throw notFunctionError(enumObj.iterator, ES6Iterator.NEXT_METHOD);
-		}
-		Context cx = Context.getContext();
-		Scriptable scope = enumObj.iterator.getParentScope();
-		Object r = f.call(cx, scope, enumObj.iterator, emptyArgs);
-		Scriptable iteratorResult = toObject(cx, scope, r);
-		Object done = ScriptableObject.getProperty(iteratorResult, ES6Iterator.DONE_PROPERTY);
-		if (done != Scriptable.NOT_FOUND && toBoolean(done)) {
-			return Boolean.FALSE;
-		}
-		enumObj.currentId = ScriptableObject.getProperty(iteratorResult, ES6Iterator.VALUE_PROPERTY);
-		return Boolean.TRUE;
-	}
-	 */
 }
