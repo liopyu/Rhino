@@ -52,19 +52,6 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 	private static final int Id_substr = 13;
 	private static final int Id_concat = 14;
 	private static final int Id_slice = 15;
-	private static final int Id_bold = 16;
-	private static final int Id_italics = 17;
-	private static final int Id_fixed = 18;
-	private static final int Id_strike = 19;
-	private static final int Id_small = 20;
-	private static final int Id_big = 21;
-	private static final int Id_blink = 22;
-	private static final int Id_sup = 23;
-	private static final int Id_sub = 24;
-	private static final int Id_fontsize = 25;
-	private static final int Id_fontcolor = 26;
-	private static final int Id_link = 27;
-	private static final int Id_anchor = 28;
 	private static final int Id_equals = 29;
 	private static final int Id_equalsIgnoreCase = 30;
 	private static final int Id_match = 31;
@@ -121,20 +108,6 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 
 	private static NativeString realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
 		return ensureType(thisObj, NativeString.class, f, cx);
-	}
-
-	/*
-	 * HTML composition aids.
-	 */
-	private static String tagify(Scriptable thisObj, String tag, String attribute, Object[] args, Context cx) {
-		String str = ScriptRuntime.toString(cx, thisObj);
-		StringBuilder result = new StringBuilder();
-		result.append('<').append(tag);
-		if (attribute != null) {
-			result.append(' ').append(attribute).append("=\"").append(ScriptRuntime.toString(cx, args, 0)).append('"');
-		}
-		result.append('>').append(str).append("</").append(tag).append('>');
-		return result.toString();
 	}
 
 	/*
@@ -609,58 +582,6 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 				arity = 2;
 				s = "slice";
 			}
-			case Id_bold -> {
-				arity = 0;
-				s = "bold";
-			}
-			case Id_italics -> {
-				arity = 0;
-				s = "italics";
-			}
-			case Id_fixed -> {
-				arity = 0;
-				s = "fixed";
-			}
-			case Id_strike -> {
-				arity = 0;
-				s = "strike";
-			}
-			case Id_small -> {
-				arity = 0;
-				s = "small";
-			}
-			case Id_big -> {
-				arity = 0;
-				s = "big";
-			}
-			case Id_blink -> {
-				arity = 0;
-				s = "blink";
-			}
-			case Id_sup -> {
-				arity = 0;
-				s = "sup";
-			}
-			case Id_sub -> {
-				arity = 0;
-				s = "sub";
-			}
-			case Id_fontsize -> {
-				arity = 0;
-				s = "fontsize";
-			}
-			case Id_fontcolor -> {
-				arity = 0;
-				s = "fontcolor";
-			}
-			case Id_link -> {
-				arity = 0;
-				s = "link";
-			}
-			case Id_anchor -> {
-				arity = 0;
-				s = "anchor";
-			}
 			case Id_equals -> {
 				arity = 1;
 				s = "equals";
@@ -955,45 +876,6 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 					CharSequence target = ScriptRuntime.toCharSequence(cx, ScriptRuntimeES6.requireObjectCoercible(cx, thisObj, f));
 					return js_slice(cx, target, args);
 				}
-
-				case Id_bold:
-					return tagify(thisObj, "b", null, null, cx);
-
-				case Id_italics:
-					return tagify(thisObj, "i", null, null, cx);
-
-				case Id_fixed:
-					return tagify(thisObj, "tt", null, null, cx);
-
-				case Id_strike:
-					return tagify(thisObj, "strike", null, null, cx);
-
-				case Id_small:
-					return tagify(thisObj, "small", null, null, cx);
-
-				case Id_big:
-					return tagify(thisObj, "big", null, null, cx);
-
-				case Id_blink:
-					return tagify(thisObj, "blink", null, null, cx);
-
-				case Id_sup:
-					return tagify(thisObj, "sup", null, null, cx);
-
-				case Id_sub:
-					return tagify(thisObj, "sub", null, null, cx);
-
-				case Id_fontsize:
-					return tagify(thisObj, "font", "size", args, cx);
-
-				case Id_fontcolor:
-					return tagify(thisObj, "font", "color", args, cx);
-
-				case Id_link:
-					return tagify(thisObj, "a", "href", args, cx);
-
-				case Id_anchor:
-					return tagify(thisObj, "a", "name", args, cx);
 
 				case Id_equals:
 				case Id_equalsIgnoreCase: {
@@ -1357,19 +1239,6 @@ final class NativeString extends IdScriptableObject implements Wrapper {
 			case "substr" -> Id_substr;
 			case "concat" -> Id_concat;
 			case "slice" -> Id_slice;
-			case "bold" -> Id_bold;
-			case "italics" -> Id_italics;
-			case "fixed" -> Id_fixed;
-			case "strike" -> Id_strike;
-			case "small" -> Id_small;
-			case "big" -> Id_big;
-			case "blink" -> Id_blink;
-			case "sup" -> Id_sup;
-			case "sub" -> Id_sub;
-			case "fontsize" -> Id_fontsize;
-			case "fontcolor" -> Id_fontcolor;
-			case "link" -> Id_link;
-			case "anchor" -> Id_anchor;
 			case "equals" -> Id_equals;
 			case "equalsIgnoreCase" -> Id_equalsIgnoreCase;
 			case "match" -> Id_match;
