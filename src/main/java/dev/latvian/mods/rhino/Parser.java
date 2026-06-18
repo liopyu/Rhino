@@ -2342,7 +2342,7 @@ public class Parser {
 			hasEOL = true;
 			tt = peekToken();
 		}
-		if (Token.FIRST_ASSIGN <= tt && tt <= Token.LAST_ASSIGN) {
+		if ((Token.FIRST_ASSIGN <= tt && tt <= Token.LAST_ASSIGN) || tt == Token.ASSIGN_POW) {
 			consumeToken();
 
 			// Pull out JSDoc info and reset it before recursing.
@@ -2447,9 +2447,10 @@ public class Parser {
 
 	private AstNode powExpr() throws IOException {
 		AstNode pn = bitOrExpr();
-		while (matchToken(Token.POW, true)) {
+		if (matchToken(Token.POW, true)) {
+			// ** is right-associative: a ** b ** c === a ** (b ** c)
 			int opPos = ts.tokenBeg;
-			pn = new InfixExpression(Token.POW, pn, bitOrExpr(), opPos);
+			pn = new InfixExpression(Token.POW, pn, powExpr(), opPos);
 		}
 		return pn;
 	}

@@ -831,10 +831,13 @@ class TokenStream {
 					return Token.GT;
 
 				case '*':
-					if (matchChar('=')) {
-						return Token.ASSIGN_MUL;
-					} else if (matchChar('*')) {
+					if (matchChar('*')) {
+						if (matchChar('=')) {
+							return Token.ASSIGN_POW;
+						}
 						return Token.POW;
+					} else if (matchChar('=')) {
+						return Token.ASSIGN_MUL;
 					} else {
 						return Token.MUL;
 					}

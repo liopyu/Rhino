@@ -197,7 +197,8 @@ public interface Token {
 	int TAGGED_TEMPLATE_LITERAL = 171;  // template literal - tagged/handler
 	int COMPUTED_PROPERTY = 172;  // computed property in object initializer [x]
 	int DOTDOTDOT = 173; // spread/rest ...
-	int LAST_TOKEN = DOTDOTDOT;
+	int ASSIGN_POW = 174; // **=
+	int LAST_TOKEN = ASSIGN_POW;
 
 	/**
 	 * Returns a name for the token.  If Rhino is compiled with certain
@@ -378,6 +379,7 @@ public interface Token {
 			case POW -> "POW";
 			case QUESTION_DOT -> "QUESTION_DOT";
 			case DOTDOTDOT -> "DOTDOTDOT";
+			case ASSIGN_POW -> "ASSIGN_POW";
 			default -> throw new IllegalStateException(String.valueOf(token));
 		};
 	}

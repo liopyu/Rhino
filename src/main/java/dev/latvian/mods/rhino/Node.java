@@ -903,6 +903,7 @@ public class Node implements Iterable<Node> {
 			case Token.ASSIGN_RSH:
 			case Token.ASSIGN_URSH:
 			case Token.ASSIGN_NULLISH:
+			case Token.ASSIGN_POW:
 			case Token.ENTERWITH:
 			case Token.LEAVEWITH:
 			case Token.RETURN:
