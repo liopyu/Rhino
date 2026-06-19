@@ -67,4 +67,49 @@ public class StringTests {
 			true
 			""");
 	}
+
+	@Test
+	public void basicTemplateLiteral() {
+		TEST.test("basicTemplateLiteral", """
+			let x = 1;
+			let y = 2;
+			console.info(`hello! x=${x} y=${y}`);
+			console.info(`sum=${x + y}`);
+			""", """
+			hello! x=1 y=2
+			sum=3
+			""");
+	}
+
+	@Test
+	public void nestedTemplateLiteral() {
+		TEST.test("nestedTemplateLiteral", "console.info(`outer-${`inner-${1 + 1}`}`);", "outer-inner-2");
+	}
+
+	@Test
+	public void multilineTemplateLiteral() {
+		TEST.test("multilineTemplateLiteral", """
+			console.info(`line1
+			line2`);
+			""", "line1\nline2");
+	}
+
+	@Test
+	public void taggedTemplateBasicCall() {
+		TEST.test("taggedTemplateBasicCall", """
+			function tag(strings, ...values) {
+				console.info(strings.length);
+				console.info(strings.join('|'));
+				console.info(strings.raw.join('|'));
+				console.info(values.join(','));
+			}
+			tag`a${1}b\\nc${2}d`;
+			""", """
+			3
+			a|b
+			c|d
+			a|b\\nc|d
+			1,2
+			""");
+	}
 }

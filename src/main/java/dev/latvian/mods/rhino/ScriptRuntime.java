@@ -3338,29 +3338,20 @@ public class ScriptRuntime {
 		assert callsite instanceof String[];
 		String[] vals = (String[]) callsite;
 		assert (vals.length & 1) == 0;
-		final int FROZEN = ScriptableObject.PERMANENT | ScriptableObject.READONLY;
 		/* step 2-7 */
 		ScriptableObject siteObj = (ScriptableObject) cx.newArray(scope, vals.length >>> 1);
 		ScriptableObject rawObj = (ScriptableObject) cx.newArray(scope, vals.length >>> 1);
+		siteObj.put(cx, "raw", siteObj, rawObj);
+		siteObj.setAttributes(cx, "raw", ScriptableObject.DONTENUM);
 		for (int i = 0, n = vals.length; i < n; i += 2) {
 			/* step 8 a-f */
 			int idx = i >>> 1;
 			siteObj.put(cx, idx, siteObj, vals[i]);
-			siteObj.setAttributes(cx, idx, FROZEN);
 			rawObj.put(cx, idx, rawObj, vals[i + 1]);
-			rawObj.setAttributes(cx, idx, FROZEN);
 		}
-		/* step 9 */
-		// TODO: call abstract operation FreezeObject
-		rawObj.setAttributes(cx, "length", FROZEN);
-		rawObj.preventExtensions();
-		/* step 10 */
-		siteObj.put(cx, "raw", siteObj, rawObj);
-		siteObj.setAttributes(cx, "raw", FROZEN | ScriptableObject.DONTENUM);
-		/* step 11 */
-		// TODO: call abstract operation FreezeObject
-		siteObj.setAttributes(cx, "length", FROZEN);
-		siteObj.preventExtensions();
+		/* step 9-11 */
+		AbstractEcmaObjectOperations.setIntegrityLevel(cx, rawObj, AbstractEcmaObjectOperations.INTEGRITY_LEVEL.FROZEN);
+		AbstractEcmaObjectOperations.setIntegrityLevel(cx, siteObj, AbstractEcmaObjectOperations.INTEGRITY_LEVEL.FROZEN);
 		/* step 12 */
 		strings[index] = siteObj;
 		return siteObj;

@@ -1202,15 +1202,10 @@ public final class IRFactory extends Parser {
 		call.setLineColumnNumber(node.getLineno(), node.getColumn());
 		TemplateLiteral templateLiteral = (TemplateLiteral) node.getTemplateLiteral();
 		List<AstNode> elems = templateLiteral.getElements();
-		// Node callSite = new Node(Token.TEMPLATE_LITERAL_CALL);
-		// call.addChildToBack(callSite);
 		call.addChildToBack(templateLiteral);
 		for (AstNode elem : elems) {
 			if (elem.getType() != Token.TEMPLATE_CHARS) {
 				call.addChildToBack(transform(elem));
-			} else {
-				TemplateCharacters chars = (TemplateCharacters) elem;
-				// callSite.addChildToBack(elem);
 			}
 		}
 		currentScriptOrFn.addTemplateLiteral(templateLiteral);
