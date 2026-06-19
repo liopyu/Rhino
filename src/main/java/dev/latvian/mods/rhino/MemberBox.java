@@ -60,6 +60,7 @@ public final class MemberBox {
 	transient CachedExecutableInfo executableInfo;
 	transient Object delegateTo;
 	public transient WrappedExecutable wrappedExecutable;
+	private transient Function asFunction;
 
 	MemberBox(CachedExecutableInfo executableInfo) {
 		this.executableInfo = executableInfo;
@@ -111,6 +112,36 @@ public final class MemberBox {
 	@Override
 	public String toString() {
 		return getName();
+	}
+
+	/**
+	 * Function returned by calls to __lookupGetter__/__lookupSetter__
+	 */
+	Function asFunction(String name, Scriptable scope, Scriptable prototype) {
+		if (asFunction == null) {
+			MemberBox self = this;
+			asFunction = new BaseFunction(scope, prototype) {
+				@Override
+				public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+					Object getterThis;
+					Object[] callArgs;
+					if (self.delegateTo == null) {
+						getterThis = thisObj;
+						callArgs = ScriptRuntime.EMPTY_OBJECTS;
+					} else {
+						getterThis = self.delegateTo;
+						callArgs = new Object[]{thisObj};
+					}
+					return self.invoke(getterThis, callArgs, cx, scope);
+				}
+
+				@Override
+				public String getFunctionName() {
+					return name;
+				}
+			};
+		}
+		return asFunction;
 	}
 
 	Object invoke(Object target, Object[] args, Context cx, Scriptable scope) {
