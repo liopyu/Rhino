@@ -7,7 +7,6 @@
 package dev.latvian.mods.rhino;
 
 import java.util.Arrays;
-import java.util.Objects;
 import dev.latvian.mods.rhino.ast.AstNode;
 import dev.latvian.mods.rhino.ast.AstRoot;
 import dev.latvian.mods.rhino.ast.Block;
@@ -167,6 +166,7 @@ class CodeGenerator extends Icode {
 		itsData.argNames = scriptOrFn.getParamAndVarNames();
 		itsData.argIsConst = scriptOrFn.getParamAndVarConst();
 		itsData.argCount = scriptOrFn.getParamCount();
+		itsData.arity = FunctionNode.calculateFunctionArity(scriptOrFn);
 
 		if (literalIds.size() != 0) {
 			itsData.literalIds = literalIds.toArray();
@@ -1077,9 +1077,8 @@ class CodeGenerator extends Icode {
 
     private void visitObjectLiteral(Node node, Node child) {
 	    Object[] propertyIds = (Object[]) node.getProp(Node.OBJECT_IDS_PROP);
-	    Object[] computedPropertyIds = (Object[]) node.getProp(Node.OBJECT_IDS_COMPUTED_PROP);
 	    int count = propertyIds == null ? 0 : propertyIds.length;
-        boolean hasAnyComputedProperty = computedPropertyIds != null && Arrays.stream(computedPropertyIds).anyMatch(Objects::nonNull);
+        boolean hasAnyComputedProperty = propertyIds != null && Arrays.stream(propertyIds).anyMatch(id -> id instanceof Node);
 
         int nextLiteralIndex = literalIds.size();
         literalIds.add(propertyIds);
@@ -1092,10 +1091,10 @@ class CodeGenerator extends Icode {
         int i = 0;
 		while (child != null) {
             // Computed key
-            Object computedPropertyId = computedPropertyIds == null ? null : computedPropertyIds[i];
-            if (computedPropertyId != null) {
+            Object propertyId = propertyIds == null ? null : propertyIds[i];
+            if (propertyId instanceof Node) {
                 // Will be a node of type Token.COMPUTED_PROPERTY wrapping the actual expression
-                Node computedPropertyNode = (Node) computedPropertyId;
+                Node computedPropertyNode = (Node) propertyId;
                 visitExpression(computedPropertyNode.first, 0);
                 addIndexOp(Icode_LITERAL_KEY_SET, i);
                 stackChange(-1);

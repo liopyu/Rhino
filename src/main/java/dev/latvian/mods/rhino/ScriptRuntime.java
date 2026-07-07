@@ -3021,6 +3021,7 @@ public class ScriptRuntime {
 		} else {
 			fn.setPrototype(ScriptableObject.getFunctionPrototype(scope, cx));
 		}
+		fn.setStandardPropertyAttributes(ScriptableObject.READONLY | ScriptableObject.DONTENUM);
 	}
 
 	public static void setObjectProtoAndParent(Context cx, Scriptable scope, ScriptableObject object) {

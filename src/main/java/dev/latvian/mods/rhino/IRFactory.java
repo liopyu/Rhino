@@ -1113,22 +1113,16 @@ public final class IRFactory extends Parser {
 		List<ObjectProperty> elems = node.getElements();
 		Node object = new Node(Token.OBJECTLIT);
 		Object[] properties;
-		Object[] computedProperties;
 		if (elems.isEmpty()) {
 			properties = ScriptRuntime.EMPTY_OBJECTS;
-			computedProperties = ScriptRuntime.EMPTY_OBJECTS;
 		} else {
 			int size = elems.size(), i = 0;
 			properties = new Object[size];
-			computedProperties = new Object[size];
 			for (ObjectProperty prop : elems) {
 				Object propKey = getPropKey(prop.getLeft());
 				if (propKey == null) {
-					// Computed property key: transform expression now, store in
-					// computedProperties slot. Runtime will resolve to a string/symbol
-					// at evaluation time.
 					Node theId = transform(prop.getLeft());
-					computedProperties[i] = theId;
+					properties[i] = theId;
 				} else {
 					properties[i] = propKey;
 				}
@@ -1156,7 +1150,6 @@ public final class IRFactory extends Parser {
 			}
 		}
 		object.putProp(Node.OBJECT_IDS_PROP, properties);
-		object.putProp(Node.OBJECT_IDS_COMPUTED_PROP, computedProperties);
 		return object;
 	}
 

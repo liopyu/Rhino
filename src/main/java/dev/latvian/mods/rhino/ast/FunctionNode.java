@@ -431,4 +431,37 @@ public class FunctionNode extends ScriptNode {
 	public void setHasRestParameter(boolean hasRestParameter) {
 		this.hasRestParameter = hasRestParameter;
 	}
+
+	public static int calculateFunctionArity(ScriptNode scriptOrFn) {
+		int paramCount = scriptOrFn.getParamCount();
+		int arity = paramCount;
+
+		if (scriptOrFn instanceof FunctionNode fnNode) {
+			java.util.List<Object> defaultParams = fnNode.getDefaultParams();
+
+			if (defaultParams != null && !defaultParams.isEmpty()) {
+				java.util.List<AstNode> params = fnNode.getParams();
+				if (params != null && !params.isEmpty()) {
+					for (int i = 0; i < defaultParams.size(); i += 2) {
+						if (defaultParams.get(i) instanceof String paramWithDefault) {
+							for (int paramIndex = 0; paramIndex < params.size(); paramIndex++) {
+								AstNode param = params.get(paramIndex);
+								if (param instanceof Name name && name.getIdentifier().equals(paramWithDefault)) {
+									arity = paramIndex;
+									break;
+								}
+							}
+							if (arity != paramCount) break;
+						}
+					}
+				}
+			}
+		}
+
+		if (scriptOrFn.hasRestParameter() && arity == paramCount) {
+			arity = Math.max(0, arity - 1);
+		}
+
+		return arity;
+	}
 }

@@ -31,6 +31,7 @@ final class InterpreterData {
 	String[] argNames;
 	boolean[] argIsConst;
 	int argCount;
+	int arity = -1; // function.length (params before first default); -1 means use argCount
 	int itsMaxCalleeArgs;
 	boolean isStrict;
 	boolean argsHasDefaults;

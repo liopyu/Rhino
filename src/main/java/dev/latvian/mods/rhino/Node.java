@@ -62,7 +62,6 @@ public class Node implements Iterable<Node> {
 	public static final int ARROW_FUNCTION_PROP = 27;
 	public static final int TEMPLATE_LITERAL_PROP = 28;
 	public static final int OBJECT_LITERAL_DESTRUCTURING = 29;
-	public static final int OBJECT_IDS_COMPUTED_PROP = 30;
 	public static final int OPTIONAL_CHAINING = 31;
 	public static final int TRAILING_COMMA = 32;
 	public static final int LAST_PROP = 32;

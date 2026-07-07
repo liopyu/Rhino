@@ -341,6 +341,7 @@ public interface Token {
 			case VOID -> "VOID";
 			case RESERVED -> "RESERVED";
 			case EMPTY -> "EMPTY";
+			case COMPUTED_PROPERTY -> "COMPUTED_PROPERTY";
 			case BLOCK -> "BLOCK";
 			case LABEL -> "LABEL";
 			case TARGET -> "TARGET";
