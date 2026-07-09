@@ -30,10 +30,10 @@ public final class ES6Generator extends ScriptableObject {
 		}
 
 		// Define prototype methods using LambdaFunction
-		prototype.defineProperty(cx, "next", new LambdaFunction(cx, scope, "next", 1, ES6Generator::js_next), DONTENUM);
-		prototype.defineProperty(cx, "return", new LambdaFunction(cx, scope, "return", 1, ES6Generator::js_return), DONTENUM);
-		prototype.defineProperty(cx, "throw", new LambdaFunction(cx, scope, "throw", 1, ES6Generator::js_throw), DONTENUM);
-		prototype.defineProperty(cx, SymbolKey.ITERATOR, new LambdaFunction(cx, scope, "[Symbol.iterator]", 0, ES6Generator::js_iterator), DONTENUM);
+		prototype.defineProperty(cx, "next", new LambdaFunction(cx, scope, "next", 1, ES6Generator::js_next, false), DONTENUM);
+		prototype.defineProperty(cx, "return", new LambdaFunction(cx, scope, "return", 1, ES6Generator::js_return, false), DONTENUM);
+		prototype.defineProperty(cx, "throw", new LambdaFunction(cx, scope, "throw", 1, ES6Generator::js_throw, false), DONTENUM);
+		prototype.defineProperty(cx, SymbolKey.ITERATOR, new LambdaFunction(cx, scope, "[Symbol.iterator]", 0, ES6Generator::js_iterator, false), DONTENUM);
 
 		if (sealed) {
 			prototype.sealObject(cx);

@@ -137,7 +137,7 @@ public class LambdaConstructor extends LambdaFunction {
 	 * covers.
 	 */
 	public void definePrototypeMethod(Context cx, Scriptable scope, String name, int length, Callable target) {
-		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target, false);
 		ScriptableObject proto = getPrototypeScriptable(cx);
 		proto.defineProperty(cx, name, f, 0);
 	}
@@ -148,7 +148,7 @@ public class LambdaConstructor extends LambdaFunction {
 	 * properties.
 	 */
 	public void definePrototypeMethod(Context cx, Scriptable scope, String name, int length, Callable target, int attributes, int propertyAttributes) {
-		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target, false);
 		f.setStandardPropertyAttributes(propertyAttributes);
 		ScriptableObject proto = getPrototypeScriptable(cx);
 		proto.defineProperty(cx, name, f, attributes);
@@ -159,7 +159,7 @@ public class LambdaConstructor extends LambdaFunction {
 	 * LambdaFunction under the covers.
 	 */
 	public void definePrototypeMethod(Context cx, Scriptable scope, SymbolKey name, int length, Callable target, int attributes, int propertyAttributes) {
-		LambdaFunction f = new LambdaFunction(cx, scope, "[" + name.getName() + "]", length, target);
+		LambdaFunction f = new LambdaFunction(cx, scope, "[" + name.getName() + "]", length, target, false);
 		f.setStandardPropertyAttributes(propertyAttributes);
 		ScriptableObject proto = getPrototypeScriptable(cx);
 		proto.defineProperty(cx, name, f, attributes);
@@ -219,7 +219,7 @@ public class LambdaConstructor extends LambdaFunction {
 	 * covers by a LambdaFunction.
 	 */
 	public void defineConstructorMethod(Context cx, Scriptable scope, String name, int length, Callable target) {
-		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target, false);
 		defineProperty(cx, name, f, DONTENUM);
 	}
 
@@ -227,7 +227,7 @@ public class LambdaConstructor extends LambdaFunction {
 	 * Define a function property directly on the constructor with explicit attributes.
 	 */
 	public void defineConstructorMethod(Context cx, Scriptable scope, String name, int length, Callable target, int attributes) {
-		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target, false);
 		defineProperty(cx, name, f, attributes);
 	}
 
@@ -236,7 +236,7 @@ public class LambdaConstructor extends LambdaFunction {
 	 * covers by a LambdaFunction, keyed by a Symbol.
 	 */
 	public void defineConstructorMethod(Context cx, Scriptable scope, Symbol key, String name, int length, Callable target, int attributes) {
-		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target, false);
 		defineProperty(cx, key, f, attributes);
 	}
 
@@ -245,7 +245,7 @@ public class LambdaConstructor extends LambdaFunction {
 	 * overrides for the LambdaFunction's "name", "length", and "arity" property attributes.
 	 */
 	public void defineConstructorMethod(Context cx, Scriptable scope, String name, int length, Callable target, int attributes, int propertyAttributes) {
-		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target, false);
 		f.setStandardPropertyAttributes(propertyAttributes);
 		defineProperty(cx, name, f, attributes);
 	}

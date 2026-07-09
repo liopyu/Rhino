@@ -30,11 +30,24 @@ public class LambdaFunction extends BaseFunction {
 	 *               single-function interface this will typically be implemented as a lambda.
 	 */
 	public LambdaFunction(Context cx, Scriptable scope, String name, int length, Callable target) {
+		this(cx, scope, name, length, target, true);
+	}
+
+	/**
+	 * Create a new function, optionally without the default {@code prototype} property. Built-in
+	 * methods and accessors are not constructors and must not expose a {@code prototype}; pass
+	 * {@code false} for those. Constructors (see {@link LambdaConstructor}) keep {@code true}.
+	 *
+	 * @param defaultPrototype whether to install the standard {@code prototype} own property
+	 */
+	public LambdaFunction(Context cx, Scriptable scope, String name, int length, Callable target, boolean defaultPrototype) {
 		this.target = target;
 		this.name = name;
 		this.length = length;
 		ScriptRuntime.setFunctionProtoAndParent(cx, scope, this);
-		setupDefaultPrototype(cx);
+		if (defaultPrototype) {
+			setupDefaultPrototype(cx);
+		}
 	}
 
 	/**

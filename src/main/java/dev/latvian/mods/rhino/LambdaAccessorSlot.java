@@ -103,7 +103,7 @@ public class LambdaAccessorSlot extends Slot {
 		this.getter = getter;
 		if (getter != null) {
 			Function<Scriptable, Object> g = getter;
-			getterFunction = new LambdaFunction(cx, scope, "get " + name, 0, (cx1, scope1, thisObj, args) -> g.apply(thisObj));
+			getterFunction = new LambdaFunction(cx, scope, "get " + name, 0, (cx1, scope1, thisObj, args) -> g.apply(thisObj), false);
 		}
 	}
 
@@ -114,7 +114,7 @@ public class LambdaAccessorSlot extends Slot {
 			setterFunction = new LambdaFunction(cx, scope, "set " + name, 1, (cx1, scope1, thisObj, args) -> {
 				s.accept(thisObj, args[0]);
 				return Undefined.INSTANCE;
-			});
+			}, false);
 		}
 	}
 

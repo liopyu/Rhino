@@ -1410,7 +1410,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 
 	/** Utility method to add a lambda function property directly to this object (e.g. for use with singletons like Math/JSON). */
 	public void defineProperty(Context cx, Scriptable scope, String name, int length, Callable target, int attributes, int propertyAttributes) {
-		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target, false);
 		f.setStandardPropertyAttributes(propertyAttributes);
 		defineProperty(cx, name, f, attributes);
 	}

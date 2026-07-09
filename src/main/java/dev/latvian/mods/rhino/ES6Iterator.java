@@ -20,10 +20,10 @@ public abstract class ES6Iterator extends ScriptableObject {
 		}
 
 		// Define prototype methods using LambdaFunction
-		LambdaFunction next = new LambdaFunction(cx, scope, NEXT_METHOD, 0, ES6Iterator::js_next);
+		LambdaFunction next = new LambdaFunction(cx, scope, NEXT_METHOD, 0, ES6Iterator::js_next, false);
 		prototype.defineProperty(cx, NEXT_METHOD, next, DONTENUM);
 
-		LambdaFunction iterator = new LambdaFunction(cx, scope, "[Symbol.iterator]", 1, ES6Iterator::js_iterator);
+		LambdaFunction iterator = new LambdaFunction(cx, scope, "[Symbol.iterator]", 1, ES6Iterator::js_iterator, false);
 		prototype.defineProperty(cx, SymbolKey.ITERATOR, iterator, DONTENUM);
 
 		prototype.defineProperty(cx, SymbolKey.TO_STRING_TAG, prototype.getClassName(), DONTENUM | READONLY);

@@ -26,7 +26,7 @@ public class ScriptRuntimeES6 {
 		speciesDescriptor.put(cx, "configurable", speciesDescriptor, Boolean.TRUE);
 		speciesDescriptor.put(cx, "get", speciesDescriptor,
 				new LambdaFunction(cx, scope, "get [Symbol.species]", 0,
-						(Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> thisObj));
+						(Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> thisObj, false));
 		constructor.defineOwnProperty(cx, SymbolKey.SPECIES, speciesDescriptor, false);
 	}
 }
