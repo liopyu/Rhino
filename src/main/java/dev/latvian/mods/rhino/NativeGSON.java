@@ -24,14 +24,7 @@ import java.util.Objects;
  */
 public class NativeGSON extends NativeJSON {
 	static void initGSON(Scriptable scope, boolean sealed, Context cx) {
-		NativeGSON obj = new NativeGSON();
-		obj.activatePrototypeMap(MAX_ID);
-		obj.setPrototype(getObjectPrototype(scope, cx));
-		obj.setParentScope(scope);
-		if (sealed) {
-			obj.sealObject(cx);
-		}
-		defineProperty(scope, "JSON", obj, DONTENUM, cx);
+		register(new NativeGSON(), scope, sealed, cx);
 	}
 
 	public static JsonElement stringify0(Context cx, Object v) {

@@ -138,7 +138,7 @@ public class NativePromise extends ScriptableObject {
 
 		IteratorLikeIterable iterable;
 		try {
-			Object maybeIterable = ScriptRuntime.callIterator(cx, scope, arg);
+			Object maybeIterable = ScriptRuntime.callIterator(arg, cx, scope);
 			iterable = new IteratorLikeIterable(cx, scope, maybeIterable);
 		} catch (RhinoException re) {
 			cap.reject.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{getErrorObject(cx, scope, re)});
@@ -168,7 +168,7 @@ public class NativePromise extends ScriptableObject {
 
 		IteratorLikeIterable iterable;
 		try {
-			Object maybeIterable = ScriptRuntime.callIterator(cx, scope, arg);
+			Object maybeIterable = ScriptRuntime.callIterator(arg, cx, scope);
 			iterable = new IteratorLikeIterable(cx, scope, maybeIterable);
 		} catch (RhinoException re) {
 			cap.reject.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{getErrorObject(cx, scope, re)});
@@ -198,7 +198,7 @@ public class NativePromise extends ScriptableObject {
 
 		IteratorLikeIterable iterable;
 		try {
-			Object maybeIterable = ScriptRuntime.callIterator(cx, scope, arg);
+			Object maybeIterable = ScriptRuntime.callIterator(arg, cx, scope);
 			iterable = new IteratorLikeIterable(cx, scope, maybeIterable);
 		} catch (RhinoException re) {
 			cap.reject.call(cx, scope, Undefined.SCRIPTABLE_INSTANCE, new Object[]{getErrorObject(cx, scope, re)});

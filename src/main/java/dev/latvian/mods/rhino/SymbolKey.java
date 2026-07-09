@@ -34,6 +34,14 @@ public class SymbolKey implements Symbol {
 		return name;
 	}
 
+	/**
+	 * Returns the symbol's description - will return {@link Undefined#INSTANCE} if we have an
+	 * anonymous symbol (i.e. something created with {@code Symbol()}).
+	 */
+	public Object getDescription() {
+		return name != null ? name : Undefined.INSTANCE;
+	}
+
 	@Override
 	public int hashCode() {
 		return System.identityHashCode(this);

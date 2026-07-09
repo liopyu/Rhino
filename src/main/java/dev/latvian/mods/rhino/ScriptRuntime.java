@@ -239,8 +239,8 @@ public class ScriptRuntime {
 		NativeMap.init(cx, scope, sealed);
 		NativePromise.init(cx, scope, sealed);
 		NativeSet.init(cx, scope, sealed);
-		NativeWeakMap.init(scope, sealed, cx);
-		NativeWeakSet.init(scope, sealed, cx);
+		NativeWeakMap.init(cx, scope, sealed);
+		NativeWeakSet.init(cx, scope, sealed);
 
 		NativeJavaObject.init(scope, sealed, cx);
 		NativeJavaMap.init(scope, sealed, cx);
@@ -952,7 +952,7 @@ public class ScriptRuntime {
 			throw typeError0(cx, "msg.undef.to.object");
 		} else if (isSymbol(val)) {
 			if (val instanceof SymbolKey) {
-				NativeSymbol result = new NativeSymbol((SymbolKey) val);
+				NativeSymbol result = new NativeSymbol((SymbolKey) val, NativeSymbol.SymbolKind.REGULAR);
 				setBuiltinProtoAndParent(cx, scope, result, TopLevel.Builtins.Symbol);
 				return result;
 			}
@@ -1970,7 +1970,7 @@ public class ScriptRuntime {
 	 * is not present, then call the result, (throwing a TypeError if the result is
 	 * not a function), and return that result, whatever it is.
 	 */
-	public static Object callIterator(Context cx, Scriptable scope, Object obj) {
+	public static Object callIterator(Object obj, Context cx, Scriptable scope) {
 		final Callable getIterator = ScriptRuntime.getElemFunctionAndThis(cx, scope, obj, SymbolKey.ITERATOR);
 		final Scriptable iterable = cx.lastStoredScriptable();
 		return getIterator.call(cx, scope, iterable, ScriptRuntime.EMPTY_OBJECTS);
@@ -2209,6 +2209,18 @@ public class ScriptRuntime {
 			return (!(value instanceof Callable));
 		}
 		return false;
+	}
+
+	/**
+	 * Return that the symbol was created by the constructor, or is a built-in Symbol, and was not
+	 * put in the registry using "for". Such symbols may be used as WeakMap/WeakSet keys; registered
+	 * ({@code Symbol.for}) symbols may not, since they can be recreated from a key.
+	 */
+	public static boolean isUnregisteredSymbol(Object obj) {
+		if (obj instanceof NativeSymbol ns) {
+			return ns.isSymbol() && ns.getKind() != NativeSymbol.SymbolKind.REGISTERED;
+		}
+		return obj instanceof SymbolKey;
 	}
 
 	public static Object add(Context cx, Object val1, Object val2) {

@@ -10,84 +10,62 @@ import java.util.WeakHashMap;
 
 /**
  * This is an implementation of the ES6 WeakMap class. As per the spec, keys must be
- * ordinary objects. Since there is no defined "equality" for objects, comparisions
- * are done strictly by object equality. Both ES6 and the java.util.WeakHashMap class
- * have the same basic structure -- entries are removed automatically when the sole
- * remaining reference to the key is a weak reference. Therefore, we can use
- * WeakHashMap as the basis of this implementation and preserve the same semantics.
+ * ordinary objects or unregistered symbols. Since there is no defined "equality" for
+ * objects, comparisons are done strictly by object equality. Both ES6 and the
+ * java.util.WeakHashMap class have the same basic structure -- entries are removed
+ * automatically when the sole remaining reference to the key is a weak reference.
+ * Therefore, we can use WeakHashMap as the basis of this implementation and preserve the
+ * same semantics.
  */
-public class NativeWeakMap extends IdScriptableObject {
-	private static final Object MAP_TAG = "WeakMap";
+public class NativeWeakMap extends ScriptableObject {
+	private static final String CLASS_NAME = "WeakMap";
 	private static final Object NULL_VALUE = new Object();
-	private static final int Id_constructor = 1;
-	private static final int Id_delete = 2;
-	private static final int Id_get = 3;
-	private static final int Id_has = 4;
-	private static final int Id_set = 5;
-	private static final int SymbolId_toStringTag = 6;
-	private static final int MAX_PROTOTYPE_ID = SymbolId_toStringTag;
-
-	static void init(Scriptable scope, boolean sealed, Context cx) {
-		NativeWeakMap m = new NativeWeakMap();
-		m.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed, cx);
-	}
-
-	private static NativeWeakMap realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
-		final NativeWeakMap nm = ensureType(thisObj, NativeWeakMap.class, f, cx);
-		if (!nm.instanceOfWeakMap) {
-			// Check for "Map internal data tag"
-			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", f.getFunctionName());
-		}
-		return nm;
-	}
 
 	private final transient WeakHashMap<Scriptable, Object> map = new WeakHashMap<>();
 	private boolean instanceOfWeakMap = false;
 
-	@Override
-	public String getClassName() {
-		return "WeakMap";
+	static void init(Context cx, Scriptable scope, boolean sealed) {
+		LambdaConstructor constructor = new LambdaConstructor(cx, scope, CLASS_NAME, 0, LambdaConstructor.CONSTRUCTOR_NEW, NativeWeakMap::jsConstructor);
+		constructor.setPrototypePropertyAttributes(DONTENUM | READONLY | PERMANENT);
+
+		constructor.definePrototypeMethod(cx, scope, "set", 2, (lcx, lscope, thisObj, args) -> realThis(thisObj, "set", lcx).js_set(lcx, NativeMap.key(args), args.length > 1 ? args[1] : Undefined.INSTANCE), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "delete", 1, (lcx, lscope, thisObj, args) -> realThis(thisObj, "delete", lcx).js_delete(NativeMap.key(args)), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "get", 1, (lcx, lscope, thisObj, args) -> realThis(thisObj, "get", lcx).js_get(NativeMap.key(args)), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "has", 1, (lcx, lscope, thisObj, args) -> realThis(thisObj, "has", lcx).js_has(NativeMap.key(args)), DONTENUM, DONTENUM | READONLY);
+
+		constructor.definePrototypeProperty(cx, SymbolKey.TO_STRING_TAG, CLASS_NAME, DONTENUM | READONLY);
+
+		ScriptRuntimeES6.addSymbolSpecies(cx, scope, constructor);
+		ScriptableObject.defineProperty(scope, CLASS_NAME, constructor, DONTENUM, cx);
+
+		if (sealed) {
+			constructor.sealObject(cx);
+		}
 	}
 
 	@Override
-	public Object execIdCall(IdFunctionObject f, Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+	public String getClassName() {
+		return CLASS_NAME;
+	}
 
-		if (!f.hasTag(MAP_TAG)) {
-			return super.execIdCall(f, cx, scope, thisObj, args);
+	private static Scriptable jsConstructor(Context cx, Scriptable scope, Object[] args) {
+		NativeWeakMap nm = new NativeWeakMap();
+		nm.instanceOfWeakMap = true;
+		if (args.length > 0) {
+			NativeMap.loadFromIterable(cx, scope, nm, NativeMap.key(args));
 		}
-		int id = f.methodId();
-		switch (id) {
-			case Id_constructor:
-				if (thisObj == null) {
-					NativeWeakMap nm = new NativeWeakMap();
-					nm.instanceOfWeakMap = true;
-					if (args.length > 0) {
-						NativeMap.loadFromIterable(cx, scope, nm, args[0]);
-					}
-					return nm;
-				}
-				throw ScriptRuntime.typeError1(cx, "msg.no.new", "WeakMap");
-			case Id_delete:
-				return realThis(thisObj, f, cx).js_delete(args.length > 0 ? args[0] : Undefined.INSTANCE);
-			case Id_get:
-				return realThis(thisObj, f, cx).js_get(args.length > 0 ? args[0] : Undefined.INSTANCE);
-			case Id_has:
-				return realThis(thisObj, f, cx).js_has(args.length > 0 ? args[0] : Undefined.INSTANCE);
-			case Id_set:
-				return realThis(thisObj, f, cx).js_set(args.length > 0 ? args[0] : Undefined.INSTANCE, args.length > 1 ? args[1] : Undefined.INSTANCE, cx);
-		}
-		throw new IllegalArgumentException("WeakMap.prototype has no method: " + f.getFunctionName());
+		return nm;
 	}
 
 	private Object js_delete(Object key) {
-		if (!ScriptRuntime.isObject(key)) {
+		if (!isValidKey(key)) {
 			return Boolean.FALSE;
 		}
 		return map.remove(key) != null;
 	}
 
 	private Object js_get(Object key) {
-		if (!ScriptRuntime.isObject(key)) {
+		if (!isValidKey(key)) {
 			return Undefined.INSTANCE;
 		}
 		Object result = map.get(key);
@@ -100,18 +78,18 @@ public class NativeWeakMap extends IdScriptableObject {
 	}
 
 	private Object js_has(Object key) {
-		if (!ScriptRuntime.isObject(key)) {
+		if (!isValidKey(key)) {
 			return Boolean.FALSE;
 		}
 		return map.containsKey(key);
 	}
 
-	private Object js_set(Object key, Object v, Context cx) {
-		// As the spec says, only a true "Object" can be the key to a WeakMap.
-		// Use the default object equality here. ScriptableObject does not override
+	private Object js_set(Context cx, Object key, Object v) {
+		// As the spec says, only a true "Object" (or an unregistered symbol) can be the key to a
+		// WeakMap. Use the default object equality here. ScriptableObject does not override
 		// equals or hashCode, which means that in effect we are only keying on object identity.
 		// This is all correct according to the ECMAscript spec.
-		if (!ScriptRuntime.isObject(key)) {
+		if (!isValidKey(key)) {
 			throw ScriptRuntime.typeError1(cx, "msg.arg.not.object", ScriptRuntime.typeof(cx, key));
 		}
 		// Map.get() does not distinguish between "not found" and a null value. So,
@@ -121,58 +99,16 @@ public class NativeWeakMap extends IdScriptableObject {
 		return this;
 	}
 
-	@Override
-	protected void initPrototypeId(int id, Context cx) {
-		if (id == SymbolId_toStringTag) {
-			initPrototypeValue(SymbolId_toStringTag, SymbolKey.TO_STRING_TAG, getClassName(), DONTENUM | READONLY);
-			return;
-		}
-
-		String s, fnName = null;
-		int arity;
-		switch (id) {
-			case Id_constructor -> {
-				arity = 0;
-				s = "constructor";
-			}
-			case Id_delete -> {
-				arity = 1;
-				s = "delete";
-			}
-			case Id_get -> {
-				arity = 1;
-				s = "get";
-			}
-			case Id_has -> {
-				arity = 1;
-				s = "has";
-			}
-			case Id_set -> {
-				arity = 2;
-				s = "set";
-			}
-			default -> throw new IllegalArgumentException(String.valueOf(id));
-		}
-		initPrototypeMethod(MAP_TAG, id, s, fnName, arity, cx);
+	private static boolean isValidKey(Object key) {
+		return ScriptRuntime.isUnregisteredSymbol(key) || ScriptRuntime.isObject(key);
 	}
 
-	@Override
-	protected int findPrototypeId(Symbol k) {
-		if (SymbolKey.TO_STRING_TAG.equals(k)) {
-			return SymbolId_toStringTag;
+	private static NativeWeakMap realThis(Scriptable thisObj, String name, Context cx) {
+		NativeWeakMap nm = LambdaConstructor.convertThisObject(cx, thisObj, NativeWeakMap.class);
+		if (!nm.instanceOfWeakMap) {
+			// Check for "Map internal data tag"
+			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", name);
 		}
-		return 0;
-	}
-
-	@Override
-	protected int findPrototypeId(String s) {
-		return switch (s) {
-			case "constructor" -> Id_constructor;
-			case "delete" -> Id_delete;
-			case "get" -> Id_get;
-			case "has" -> Id_has;
-			case "set" -> Id_set;
-			default -> 0;
-		};
+		return nm;
 	}
 }

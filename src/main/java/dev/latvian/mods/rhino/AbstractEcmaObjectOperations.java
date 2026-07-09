@@ -139,14 +139,18 @@ public class AbstractEcmaObjectOperations {
 	 * @see <a href="https://tc39.es/ecma262/#sec-groupby"></a>
 	 */
 	static Map<Object, List<Object>> groupBy(Context cx, Scriptable scope, IdFunctionObject f, Object items, Object callback, KEY_COERCION keyCoercion) {
-		ScriptRuntimeES6.requireObjectCoercible(cx, items, f);
+		return groupBy(cx, scope, f.getTag(), f.getFunctionName(), items, callback, keyCoercion);
+	}
+
+	static Map<Object, List<Object>> groupBy(Context cx, Scriptable scope, Object tag, Object methodName, Object items, Object callback, KEY_COERCION keyCoercion) {
+		ScriptRuntimeES6.requireObjectCoercible(cx, items, tag, methodName);
 		if (!(callback instanceof Callable)) {
 			throw ScriptRuntime.notFunctionError(cx, callback);
 		}
 
 		// LinkedHashMap used to preserve key creation order
 		Map<Object, List<Object>> groups = new LinkedHashMap<>();
-		final Object iterator = ScriptRuntime.callIterator(cx, scope, items);
+		final Object iterator = ScriptRuntime.callIterator(items, cx, scope);
 		try (IteratorLikeIterable it = new IteratorLikeIterable(cx, scope, iterator)) {
 			double i = 0;
 			for (Object o : it) {

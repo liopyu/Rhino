@@ -9,41 +9,75 @@ package dev.latvian.mods.rhino;
 import java.util.List;
 import java.util.Map;
 
-public class NativeMap extends IdScriptableObject {
+public class NativeMap extends ScriptableObject {
+	private static final String CLASS_NAME = "Map";
 	static final String ITERATOR_TAG = "Map Iterator";
-	private static final Object MAP_TAG = "Map";
-	// Note that "SymbolId_iterator" is not present here. That's because the spec
-	// requires that it be the same value as the "entries" prototype property.
-	private static final int ConstructorId_groupBy = -1;
-	private static final int Id_constructor = 1;
-	private static final int Id_set = 2;
-	private static final int Id_get = 3;
-	private static final int Id_delete = 4;
-	private static final int Id_has = 5;
-	private static final int Id_clear = 6;
-	private static final int Id_keys = 7;
-	private static final int Id_values = 8;
-	private static final int Id_entries = 9;
-	private static final int Id_forEach = 10;
-	private static final int SymbolId_getSize = 11;
-	private static final int SymbolId_toStringTag = 12;
-	private static final int MAX_PROTOTYPE_ID = SymbolId_toStringTag;
+
+	private final Hashtable entries;
+	private boolean instanceOfMap = false;
+
+	public NativeMap(Context cx) {
+		entries = new Hashtable(cx);
+	}
 
 	static void init(Context cx, Scriptable scope, boolean sealed) {
-		NativeMap obj = new NativeMap(cx);
-		IdFunctionObject constructor = obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, false, cx);
+		LambdaConstructor constructor = new LambdaConstructor(cx, scope, CLASS_NAME, 0, LambdaConstructor.CONSTRUCTOR_NEW, NativeMap::jsConstructor);
+		constructor.setPrototypePropertyAttributes(DONTENUM | READONLY | PERMANENT);
 
-		ScriptableObject desc = (ScriptableObject) cx.newObject(scope);
-		desc.put(cx, "enumerable", desc, Boolean.FALSE);
-		desc.put(cx, "configurable", desc, Boolean.TRUE);
-		desc.put(cx, "get", desc, obj.get(cx, NativeSet.GETSIZE, obj));
-		obj.defineOwnProperty(cx, "size", desc);
+		constructor.defineConstructorMethod(cx, scope, "groupBy", 2, NativeMap::jsGroupBy, DONTENUM);
+
+		constructor.definePrototypeMethod(cx, scope, "set", 2, (lcx, lscope, thisObj, args) -> realThis(thisObj, "set", lcx).js_set(lcx, key(args), args.length > 1 ? args[1] : Undefined.INSTANCE), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "delete", 1, (lcx, lscope, thisObj, args) -> realThis(thisObj, "delete", lcx).js_delete(lcx, key(args)), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "get", 1, (lcx, lscope, thisObj, args) -> realThis(thisObj, "get", lcx).js_get(lcx, key(args)), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "has", 1, (lcx, lscope, thisObj, args) -> realThis(thisObj, "has", lcx).js_has(lcx, key(args)), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "clear", 0, (lcx, lscope, thisObj, args) -> realThis(thisObj, "clear", lcx).js_clear(lcx), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "keys", 0, (lcx, lscope, thisObj, args) -> realThis(thisObj, "keys", lcx).js_iterator(lscope, NativeCollectionIterator.Type.KEYS, lcx), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "values", 0, (lcx, lscope, thisObj, args) -> realThis(thisObj, "values", lcx).js_iterator(lscope, NativeCollectionIterator.Type.VALUES, lcx), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "forEach", 1, (lcx, lscope, thisObj, args) -> realThis(thisObj, "forEach", lcx).js_forEach(lcx, lscope, args.length > 0 ? args[0] : Undefined.INSTANCE, args.length > 1 ? args[1] : Undefined.INSTANCE), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeMethod(cx, scope, "entries", 0, (lcx, lscope, thisObj, args) -> realThis(thisObj, "entries", lcx).js_iterator(lscope, NativeCollectionIterator.Type.BOTH, lcx), DONTENUM, DONTENUM | READONLY);
+		constructor.definePrototypeAlias(cx, "entries", SymbolKey.ITERATOR, DONTENUM);
+
+		// The spec requires very specific handling of the "size" prototype
+		// property that's not like other things that we already do.
+		constructor.definePrototypeProperty(cx, "size", thisObj -> realThis(thisObj, "size", cx).js_getSize(), DONTENUM);
+
+		constructor.definePrototypeProperty(cx, SymbolKey.TO_STRING_TAG, CLASS_NAME, DONTENUM | READONLY);
 
 		ScriptRuntimeES6.addSymbolSpecies(cx, scope, constructor);
+		ScriptableObject.defineProperty(scope, CLASS_NAME, constructor, DONTENUM, cx);
 
 		if (sealed) {
-			obj.sealObject(cx);
+			constructor.sealObject(cx);
 		}
+	}
+
+	static Object key(Object[] args) {
+		return args.length > 0 ? args[0] : Undefined.INSTANCE;
+	}
+
+	private static Scriptable jsConstructor(Context cx, Scriptable scope, Object[] args) {
+		NativeMap nm = new NativeMap(cx);
+		nm.instanceOfMap = true;
+		if (args.length > 0) {
+			loadFromIterable(cx, scope, nm, key(args));
+		}
+		return nm;
+	}
+
+	private static Object jsGroupBy(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+		Object items = args.length < 1 ? Undefined.INSTANCE : args[0];
+		Object callback = args.length < 2 ? Undefined.INSTANCE : args[1];
+
+		Map<Object, List<Object>> groups = AbstractEcmaObjectOperations.groupBy(cx, scope, CLASS_NAME, "groupBy", items, callback, AbstractEcmaObjectOperations.KEY_COERCION.COLLECTION);
+
+		NativeMap map = (NativeMap) cx.newObject(scope, "Map");
+
+		for (Map.Entry<Object, List<Object>> entry : groups.entrySet()) {
+			Scriptable elements = cx.newArray(scope, entry.getValue().toArray());
+			map.entries.put(cx, entry.getKey(), elements);
+		}
+
+		return map;
 	}
 
 	/**
@@ -56,7 +90,7 @@ public class NativeMap extends IdScriptableObject {
 		}
 
 		// Call the "[Symbol.iterator]" property as a function.
-		final Object ito = ScriptRuntime.callIterator(cx, scope, arg1);
+		final Object ito = ScriptRuntime.callIterator(arg1, cx, scope);
 		if (Undefined.INSTANCE.equals(ito)) {
 			// Per spec, ignore if the iterator is undefined
 			return;
@@ -89,88 +123,18 @@ public class NativeMap extends IdScriptableObject {
 		}
 	}
 
-	private static NativeMap realThis(Scriptable thisObj, IdFunctionObject f, Context cx) {
-		final NativeMap nm = ensureType(thisObj, NativeMap.class, f, cx);
+	private static NativeMap realThis(Scriptable thisObj, String name, Context cx) {
+		NativeMap nm = LambdaConstructor.convertThisObject(cx, thisObj, NativeMap.class);
 		if (!nm.instanceOfMap) {
 			// Check for "Map internal data tag"
-			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", f.getFunctionName());
+			throw ScriptRuntime.typeError1(cx, "msg.incompat.call", name);
 		}
 		return nm;
 	}
 
-	private final Hashtable entries;
-	private boolean instanceOfMap = false;
-
-	public NativeMap(Context cx) {
-		entries = new Hashtable(cx);
-	}
-
 	@Override
 	public String getClassName() {
-		return "Map";
-	}
-
-	@Override
-	protected void fillConstructorProperties(IdFunctionObject ctor, Context cx) {
-		addIdFunctionProperty(ctor, MAP_TAG, ConstructorId_groupBy, "groupBy", 2, cx);
-		super.fillConstructorProperties(ctor, cx);
-	}
-
-	@Override
-	public Object execIdCall(IdFunctionObject f, Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-		if (!f.hasTag(MAP_TAG)) {
-			return super.execIdCall(f, cx, scope, thisObj, args);
-		}
-		int id = f.methodId();
-		switch (id) {
-			case Id_constructor:
-				if (thisObj == null) {
-					NativeMap nm = new NativeMap(cx);
-					nm.instanceOfMap = true;
-					if (args.length > 0) {
-						loadFromIterable(cx, scope, nm, args[0]);
-					}
-					return nm;
-				}
-				throw ScriptRuntime.typeError1(cx, "msg.no.new", "Map");
-			case Id_set:
-				return realThis(thisObj, f, cx).js_set(cx, args.length > 0 ? args[0] : Undefined.INSTANCE, args.length > 1 ? args[1] : Undefined.INSTANCE);
-			case Id_delete:
-				return realThis(thisObj, f, cx).js_delete(cx, args.length > 0 ? args[0] : Undefined.INSTANCE);
-			case Id_get:
-				return realThis(thisObj, f, cx).js_get(cx, args.length > 0 ? args[0] : Undefined.INSTANCE);
-			case Id_has:
-				return realThis(thisObj, f, cx).js_has(cx, args.length > 0 ? args[0] : Undefined.INSTANCE);
-			case Id_clear:
-				return realThis(thisObj, f, cx).js_clear(cx);
-			case Id_keys:
-				return realThis(thisObj, f, cx).js_iterator(scope, NativeCollectionIterator.Type.KEYS, cx);
-			case Id_values:
-				return realThis(thisObj, f, cx).js_iterator(scope, NativeCollectionIterator.Type.VALUES, cx);
-			case Id_entries:
-				return realThis(thisObj, f, cx).js_iterator(scope, NativeCollectionIterator.Type.BOTH, cx);
-			case Id_forEach:
-				return realThis(thisObj, f, cx).js_forEach(cx, scope, args.length > 0 ? args[0] : Undefined.INSTANCE, args.length > 1 ? args[1] : Undefined.INSTANCE);
-			case SymbolId_getSize:
-				return realThis(thisObj, f, cx).js_getSize();
-
-			case ConstructorId_groupBy: {
-				Object items = args.length < 1 ? Undefined.INSTANCE : args[0];
-				Object callback = args.length < 2 ? Undefined.INSTANCE : args[1];
-
-				Map<Object, List<Object>> groups = AbstractEcmaObjectOperations.groupBy(cx, scope, f, items, callback, AbstractEcmaObjectOperations.KEY_COERCION.COLLECTION);
-
-				NativeMap map = (NativeMap) cx.newObject(scope, "Map");
-
-				for (Map.Entry<Object, List<Object>> entry : groups.entrySet()) {
-					Scriptable elements = cx.newArray(scope, entry.getValue().toArray());
-					map.entries.put(cx, entry.getKey(), elements);
-				}
-
-				return map;
-			}
-		}
-		throw new IllegalArgumentException("Map.prototype has no method: " + f.getFunctionName());
+		return CLASS_NAME;
 	}
 
 	private Object js_set(Context cx, Object k, Object v) {
@@ -233,101 +197,5 @@ public class NativeMap extends IdScriptableObject {
 			f.call(cx, scope, thisObj, new Object[]{entry.value, entry.key, this});
 		}
 		return Undefined.INSTANCE;
-	}
-
-	@Override
-	protected void initPrototypeId(int id, Context cx) {
-		switch (id) {
-			case SymbolId_getSize -> {
-				initPrototypeMethod(MAP_TAG, id, NativeSet.GETSIZE, "get size", 0, cx);
-				return;
-			}
-			case SymbolId_toStringTag -> {
-				initPrototypeValue(SymbolId_toStringTag, SymbolKey.TO_STRING_TAG, getClassName(), DONTENUM | READONLY);
-				return;
-			}
-			// fallthrough
-		}
-
-		String s, fnName = null;
-		int arity;
-		switch (id) {
-			case Id_constructor -> {
-				arity = 0;
-				s = "constructor";
-			}
-			case Id_set -> {
-				arity = 2;
-				s = "set";
-			}
-			case Id_get -> {
-				arity = 1;
-				s = "get";
-			}
-			case Id_delete -> {
-				arity = 1;
-				s = "delete";
-			}
-			case Id_has -> {
-				arity = 1;
-				s = "has";
-			}
-			case Id_clear -> {
-				arity = 0;
-				s = "clear";
-			}
-			case Id_keys -> {
-				arity = 0;
-				s = "keys";
-			}
-			case Id_values -> {
-				arity = 0;
-				s = "values";
-			}
-			case Id_entries -> {
-				arity = 0;
-				s = "entries";
-			}
-			case Id_forEach -> {
-				arity = 1;
-				s = "forEach";
-			}
-			default -> throw new IllegalArgumentException(String.valueOf(id));
-		}
-		initPrototypeMethod(MAP_TAG, id, s, fnName, arity, cx);
-	}
-
-	@Override
-	protected int findPrototypeId(Symbol k) {
-		if (NativeSet.GETSIZE.equals(k)) {
-			return SymbolId_getSize;
-		}
-		if (SymbolKey.ITERATOR.equals(k)) {
-			// ECMA spec says that the "Symbol.iterator" property of the prototype has the
-			// "same value" as the "entries" property. We implement this by returning the
-			// ID of "entries" when the iterator symbol is accessed.
-			return Id_entries;
-		}
-		if (SymbolKey.TO_STRING_TAG.equals(k)) {
-			return SymbolId_toStringTag;
-		}
-		return 0;
-	}
-
-	@Override
-	protected int findPrototypeId(String s) {
-		return switch (s) {
-			case "constructor" -> Id_constructor;
-			case "set" -> Id_set;
-			case "get" -> Id_get;
-			case "delete" -> Id_delete;
-			case "has" -> Id_has;
-			case "clear" -> Id_clear;
-			case "keys" -> Id_keys;
-			case "values" -> Id_values;
-			case "entries" -> Id_entries;
-			case "forEach" -> Id_forEach;
-			default -> 0;
-		};
 	}
 }

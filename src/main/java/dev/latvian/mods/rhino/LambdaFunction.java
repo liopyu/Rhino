@@ -13,7 +13,8 @@ package dev.latvian.mods.rhino;
  */
 public class LambdaFunction extends BaseFunction {
 	// The target is expected to be a lambda -- lambdas should not be serialized.
-	private final transient Callable target;
+	// Read by LambdaConstructor, which uses it as the "call as function" handler.
+	protected final transient Callable target;
 	private final String name;
 	private final int length;
 

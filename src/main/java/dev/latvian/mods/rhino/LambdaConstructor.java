@@ -49,7 +49,10 @@ public class LambdaConstructor extends LambdaFunction {
 	}
 
 	// Lambdas should not be serialized.
-	private final transient Constructable targetConstructor;
+	protected final transient Constructable targetConstructor;
+	// The "call as function" handler lives in the inherited LambdaFunction.target: a null target
+	// means fall back to targetConstructor (i.e. call and new behave the same, as in the
+	// single-handler ctors).
 	private final int flags;
 
 	/**
@@ -80,12 +83,26 @@ public class LambdaConstructor extends LambdaFunction {
 		this.flags = flags;
 	}
 
+	/**
+	 * Create a constructor whose "called as a function" and "invoked with new" behaviour differ.
+	 * {@code targetCall} handles {@code f(args)}; {@code targetConstructor} handles {@code new f(args)}.
+	 * Used by legacy builtins like {@code Iterator} that have distinct function-vs-new semantics.
+	 */
+	public LambdaConstructor(Context cx, Scriptable scope, String name, int length, Callable targetCall, Constructable targetConstructor) {
+		super(cx, scope, name, length, targetCall);
+		this.targetConstructor = targetConstructor;
+		this.flags = CONSTRUCTOR_FUNCTION | CONSTRUCTOR_NEW;
+	}
+
 	@Override
 	public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
 		if ((flags & CONSTRUCTOR_FUNCTION) == 0) {
 			throw ScriptRuntime.typeError1(cx, "msg.constructor.no.function", getFunctionName());
 		}
-		return targetConstructor.construct(cx, scope, args);
+		if (target == null) {
+			return targetConstructor.construct(cx, scope, args);
+		}
+		return target.call(cx, scope, thisObj, args);
 	}
 
 	@Override
@@ -97,6 +114,22 @@ public class LambdaConstructor extends LambdaFunction {
 		obj.setPrototype(getClassPrototype(cx));
 		obj.setParentScope(scope);
 		return obj;
+	}
+
+	/**
+	 * Install an existing prototype object as this constructor's prototype property, wiring up its
+	 * parent scope, Object.prototype base, and {@code constructor} back-reference. Used by builtins
+	 * that build their prototype as an instance (e.g. {@code NativeIterator}) rather than letting
+	 * {@code construct()} derive one.
+	 */
+	public void setPrototypeScriptable(ScriptableObject proto, Context cx) {
+		proto.setParentScope(getParentScope());
+		setPrototypeProperty(proto);
+		Scriptable objectProto = getObjectPrototype(this, cx);
+		if (proto != objectProto) {
+			proto.setPrototype(objectProto);
+		}
+		proto.defineProperty(cx, "constructor", this, DONTENUM);
 	}
 
 	/**
@@ -116,6 +149,17 @@ public class LambdaConstructor extends LambdaFunction {
 	 */
 	public void definePrototypeMethod(Context cx, Scriptable scope, String name, int length, Callable target, int attributes, int propertyAttributes) {
 		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		f.setStandardPropertyAttributes(propertyAttributes);
+		ScriptableObject proto = getPrototypeScriptable(cx);
+		proto.defineProperty(cx, name, f, attributes);
+	}
+
+	/**
+	 * Define a function property on the prototype of the constructor, keyed by a Symbol, using a
+	 * LambdaFunction under the covers.
+	 */
+	public void definePrototypeMethod(Context cx, Scriptable scope, SymbolKey name, int length, Callable target, int attributes, int propertyAttributes) {
+		LambdaFunction f = new LambdaFunction(cx, scope, "[" + name.getName() + "]", length, target);
 		f.setStandardPropertyAttributes(propertyAttributes);
 		ScriptableObject proto = getPrototypeScriptable(cx);
 		proto.defineProperty(cx, name, f, attributes);
@@ -152,6 +196,22 @@ public class LambdaConstructor extends LambdaFunction {
 	public void definePrototypeProperty(Context cx, String name, java.util.function.Function<Scriptable, Object> getter, BiConsumer<Scriptable, Object> setter, int attributes) {
 		ScriptableObject proto = getPrototypeScriptable(cx);
 		proto.defineProperty(cx, name, getter, setter, attributes);
+	}
+
+	/**
+	 * Define a property on the prototype that has the same value as another, already-defined
+	 * prototype property (e.g. {@code keys} aliasing {@code values}).
+	 */
+	public void definePrototypeAlias(Context cx, String name, String alias, int attributes) {
+		ScriptableObject proto = getPrototypeScriptable(cx);
+		Object val = proto.get(cx, name, proto);
+		proto.defineProperty(cx, alias, val, attributes);
+	}
+
+	public void definePrototypeAlias(Context cx, String name, Symbol alias, int attributes) {
+		ScriptableObject proto = getPrototypeScriptable(cx);
+		Object val = proto.get(cx, name, proto);
+		proto.defineProperty(cx, alias, val, attributes);
 	}
 
 	/**

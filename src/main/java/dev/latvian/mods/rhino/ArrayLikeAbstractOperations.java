@@ -29,11 +29,11 @@ public class ArrayLikeAbstractOperations {
 	/**
 	 * Implements the methods "every", "filter", "forEach", "map", and "some".
 	 */
-	public static Object iterativeMethod(Context cx, IdFunctionObject fun, IterativeOperation operation, Scriptable scope, Scriptable thisObj, Object[] args) {
+	public static Object iterativeMethod(Context cx, Object tag, String name, IterativeOperation operation, Scriptable scope, Scriptable thisObj, Object[] args) {
 		Scriptable o = ScriptRuntime.toObject(cx, scope, thisObj);
 
 		if (IterativeOperation.FIND == operation || IterativeOperation.FIND_INDEX == operation || IterativeOperation.FIND_LAST == operation || IterativeOperation.FIND_LAST_INDEX == operation) {
-			ScriptRuntimeES6.requireObjectCoercible(cx, o, fun);
+			ScriptRuntimeES6.requireObjectCoercible(cx, o, tag, name);
 		}
 
 		long length = NativeArray.getLengthProperty(cx, o);
@@ -265,5 +265,30 @@ public class ArrayLikeAbstractOperations {
 
 			return child.compare(x, y);
 		}
+	}
+
+	/**
+	 * ECMAScript ArraySpeciesCreate: create a new array-like using the receiver's
+	 * {@code constructor[Symbol.species]} if one is defined, otherwise a plain array.
+	 */
+	static Scriptable arraySpeciesCreate(Context cx, Scriptable scope, Scriptable o, int length) {
+		if (o instanceof NativeArray) {
+			Object c = ScriptableObject.getProperty(o, "constructor", cx);
+			if (c instanceof Scriptable) {
+				c = ScriptableObject.getProperty((Scriptable) c, SymbolKey.SPECIES, cx);
+				if (c == null || c == Scriptable.NOT_FOUND) {
+					c = Undefined.INSTANCE;
+				}
+			}
+
+			if (!Undefined.isUndefined(c)) {
+				if (c instanceof Constructable) {
+					return ((Constructable) c).construct(cx, scope, new Object[] {(double) length});
+				} else {
+					throw ScriptRuntime.typeError1(cx, "msg.ctor.not.found", o);
+				}
+			}
+		}
+		return cx.newArray(scope, length);
 	}
 }

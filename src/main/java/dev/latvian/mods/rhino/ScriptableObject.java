@@ -1408,6 +1408,13 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 		setAttributes(cx, propertyName, attributes);
 	}
 
+	/** Utility method to add a lambda function property directly to this object (e.g. for use with singletons like Math/JSON). */
+	public void defineProperty(Context cx, Scriptable scope, String name, int length, Callable target, int attributes, int propertyAttributes) {
+		LambdaFunction f = new LambdaFunction(cx, scope, name, length, target);
+		f.setStandardPropertyAttributes(propertyAttributes);
+		defineProperty(cx, name, f, attributes);
+	}
+
 	/**
 	 * A version of defineProperty that uses a Symbol key.
 	 *
@@ -1606,6 +1613,22 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 			}
 		}
 
+		Slot aSlot = slotMap.query(key, index);
+		if (aSlot instanceof BuiltInSlot) {
+			// 10.4.2.4 ArrayLengthSet requires we check that any new value is valid and throw a
+			// range error if not before checking attributes. It also specifies subtly different
+			// behaviour round non-writable slots and the presence of "value", so we let such
+			// slots define their own semantics.
+			//
+			// We do this outside the compute block as some tests modify the current descriptor
+			// as part of operations performed as part of applying the descriptor.
+			((BuiltInSlot<?>) aSlot).applyNewDescriptor(id, desc, checkValid, key, index, cx);
+		} else {
+			defineOrdinaryProperty(cx, id, desc, checkValid, key, index);
+		}
+	}
+
+	void defineOrdinaryProperty(Context cx, Object id, ScriptableObject desc, boolean checkValid, Object key, int index) {
 		// this property lookup cannot happen from inside slotMap.compute lambda
 		// as it risks causing a deadlock if a thread-safe slot map is used
 		// and `this` is in prototype chain of `desc`
@@ -1650,6 +1673,10 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 					fslot.setter = new AccessorSlot.FunctionSetter(setter);
 				}
 				fslot.value = Undefined.INSTANCE;
+			} else if (slot instanceof BuiltInSlot) {
+				if (value != NOT_FOUND) {
+					slot.setValue(value, this, this, cx, true);
+				}
 			} else {
 				if (!slot.isValueSlot() && isDataDescriptor(desc, cx)) {
 					// Replace a non-base slot with a regular slot
@@ -1683,7 +1710,7 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 	 *     set directly and may not be retrieved by the getter.
 	 * @param attributes the attributes to set on the property
 	 */
-	public void defineProperty(Context cx, String name, Supplier<Object> getter, Consumer<Object> setter, int attributes) {
+	public void defineProperty(String name, Supplier<Object> getter, Consumer<Object> setter, int attributes) {
 		LambdaSlot lSlot = slotMap.compute(name, 0, ScriptableObject::ensureLambdaSlot);
 		lSlot.setAttributes(attributes);
 		lSlot.getter = getter;
@@ -1691,8 +1718,26 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 	}
 
 	/**
+	 * Define a property on this object backed by a {@link BuiltInSlot}. Unlike the lambda-slot
+	 * variants, a BuiltInSlot survives descriptor redefinition via {@code Object.defineProperty},
+	 * running the supplied {@code propDescSetter} instead of being replaced by a plain data slot.
+	 * This is used for properties with bespoke redefinition semantics such as array {@code length}.
+	 */
+	public static <T extends ScriptableObject> void defineBuiltInProperty(T owner, String name, int attributes, BuiltInSlot.Getter<T> getter, BuiltInSlot.Setter<T> setter, BuiltInSlot.AttributeSetter<T> attrSetter) {
+		owner.addSlot(new BuiltInSlot<>(name, 0, attributes, owner, getter, setter, attrSetter));
+	}
+
+	public static <T extends ScriptableObject> void defineBuiltInProperty(T owner, String name, int attributes, BuiltInSlot.Getter<T> getter, BuiltInSlot.Setter<T> setter, BuiltInSlot.AttributeSetter<T> attrSetter, BuiltInSlot.PropDescriptionSetter<T> propDescSetter) {
+		owner.addSlot(new BuiltInSlot<>(name, 0, attributes, owner, getter, setter, attrSetter, propDescSetter));
+	}
+
+	void addSlot(Slot slot) {
+		slotMap.add(slot);
+	}
+
+	/**
 	 * Define a property on this object that is implemented using lambda functions, like {@link
-	 * #defineProperty(Context, String, Supplier, Consumer, int)}, except that the getter and setter
+	 * #defineProperty(String, Supplier, Consumer, int)}, except that the getter and setter
 	 * are passed the actual receiving object rather than always acting on a single captured value.
 	 * This is useful for defining properties on a shared prototype where each instance needs its own
 	 * backing state.
@@ -1805,7 +1850,8 @@ public abstract class ScriptableObject implements Scriptable, SymbolScriptable, 
 							throw ScriptRuntime.typeError1(cx, "msg.change.writable.false.to.true.with.configurable.false", id);
 						}
 
-						if (!sameValue(cx, getProperty(desc, "value", cx), current.value)) {
+						Object currentValue = current instanceof BuiltInSlot ? current.getValue(null, cx) : current.value;
+						if (!sameValue(cx, getProperty(desc, "value", cx), currentValue)) {
 							throw ScriptRuntime.typeError1(cx, "msg.change.value.with.writable.false", id);
 						}
 					}

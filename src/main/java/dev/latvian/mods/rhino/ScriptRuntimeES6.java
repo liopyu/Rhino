@@ -9,8 +9,12 @@ package dev.latvian.mods.rhino;
 public class ScriptRuntimeES6 {
 
 	public static Object requireObjectCoercible(Context cx, Object val, IdFunctionObject idFuncObj) {
+		return requireObjectCoercible(cx, val, idFuncObj.getTag(), idFuncObj.getFunctionName());
+	}
+
+	public static Object requireObjectCoercible(Context cx, Object val, Object tag, Object methodName) {
 		if (val == null || Undefined.isUndefined(val)) {
-			throw ScriptRuntime.typeError2(cx, "msg.called.null.or.undefined", idFuncObj.getTag(), idFuncObj.getFunctionName());
+			throw ScriptRuntime.typeError2(cx, "msg.called.null.or.undefined", tag, methodName);
 		}
 		return val;
 	}

@@ -16,26 +16,63 @@ import java.util.Map;
  *
  * @author Matthew Crumley, Raphael Speyer
  */
-public class NativeJSON extends IdScriptableObject {
-	private static final Object JSON_TAG = "JSON";
-
+public class NativeJSON extends ScriptableObject {
 	protected static final int MAX_STRINGIFY_GAP_LENGTH = 10;
 
-	protected static final int Id_toSource = 1;
-	protected static final int Id_parse = 2;
-	protected static final int Id_stringify = 3;
-	protected static final int LAST_METHOD_ID = 3;
-	protected static final int MAX_ID = 3;
-
 	static void init(Scriptable scope, boolean sealed, Context cx) {
-		NativeJSON obj = new NativeJSON();
-		obj.activatePrototypeMap(MAX_ID);
+		register(new NativeJSON(), scope, sealed, cx);
+	}
+
+	/**
+	 * Shared registration for the JSON singleton. The prototype methods capture
+	 * {@code obj} and dispatch through it so subclasses are respected.
+	 */
+	static void register(NativeJSON obj, Scriptable scope, boolean sealed, Context cx) {
 		obj.setPrototype(getObjectPrototype(scope, cx));
 		obj.setParentScope(scope);
+
+		obj.defineProperty(cx, scope, "toSource", 0, (lcx, lscope, thisObj, args) -> "JSON", DONTENUM, DONTENUM | READONLY);
+		obj.defineProperty(cx, scope, "parse", 2, (lcx, lscope, thisObj, args) -> obj.jsonParse(lcx, lscope, args), DONTENUM, DONTENUM | READONLY);
+		obj.defineProperty(cx, scope, "stringify", 3, (lcx, lscope, thisObj, args) -> obj.jsonStringify(lcx, args), DONTENUM, DONTENUM | READONLY);
+
+		obj.defineProperty(cx, SymbolKey.TO_STRING_TAG, "JSON", DONTENUM | READONLY);
+
 		if (sealed) {
 			obj.sealObject(cx);
 		}
 		defineProperty(scope, "JSON", obj, DONTENUM, cx);
+	}
+
+	private Object jsonParse(Context cx, Scriptable scope, Object[] args) {
+		String jtext = ScriptRuntime.toString(cx, args, 0);
+		Object reviver = args.length > 1 ? args[1] : null;
+		if (reviver instanceof Callable) {
+			return parse(cx, scope, jtext, (Callable) reviver);
+		}
+		return parse(cx, scope, jtext);
+	}
+
+	private Object jsonStringify(Context cx, Object[] args) {
+		Object value = null, replacer = null, space = null;
+		switch (args.length) {
+			case 3:
+				space = args[2];
+				/* fall through */
+			case 2:
+				replacer = args[1];
+				/* fall through */
+			case 1:
+				value = args[0];
+				/* fall through */
+			case 0:
+				/* fall through */
+			default:
+		}
+		if (args.length == 0 || doesNotSerialize(value)) {
+			return Undefined.INSTANCE;
+		}
+		// virtual dispatch so NativeGSON's override is honoured
+		return stringifyJSON(value, replacer, space, cx);
 	}
 
 	private static Object parse(Context cx, Scriptable scope, String jtext) {
@@ -227,92 +264,7 @@ public class NativeJSON extends IdScriptableObject {
 		return "JSON";
 	}
 
-	@Override
-	protected void initPrototypeId(int id, Context cx) {
-		if (id <= LAST_METHOD_ID) {
-			String name;
-			int arity;
-			switch (id) {
-				case Id_toSource -> {
-					arity = 0;
-					name = "toSource";
-				}
-				case Id_parse -> {
-					arity = 2;
-					name = "parse";
-				}
-				case Id_stringify -> {
-					arity = 3;
-					name = "stringify";
-				}
-				default -> throw new IllegalStateException(String.valueOf(id));
-			}
-			initPrototypeMethod(JSON_TAG, id, name, arity, cx);
-		} else {
-			throw new IllegalStateException(String.valueOf(id));
-		}
-	}
-
-	@Override
-	public Object execIdCall(IdFunctionObject f, Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-		if (!f.hasTag(JSON_TAG)) {
-			return super.execIdCall(f, cx, scope, thisObj, args);
-		}
-		int methodId = f.methodId();
-		switch (methodId) {
-			case Id_toSource:
-				return "JSON";
-
-			case Id_parse: {
-				String jtext = ScriptRuntime.toString(cx, args, 0);
-				Object reviver = null;
-				if (args.length > 1) {
-					reviver = args[1];
-				}
-				if (reviver instanceof Callable) {
-					return parse(cx, scope, jtext, (Callable) reviver);
-				}
-				return parse(cx, scope, jtext);
-			}
-
-			case Id_stringify: {
-				Object value = null, replacer = null, space = null;
-				switch (args.length) {
-					case 3:
-						space = args[2];
-						/* fall through */
-					case 2:
-						replacer = args[1];
-						/* fall through */
-					case 1:
-						value = args[0];
-						/* fall through */
-					case 0:
-						/* fall through */
-					default:
-				}
-				if (args.length == 0 || doesNotSerialize(value)) {
-					return Undefined.INSTANCE;
-				}
-				return stringifyJSON(value, replacer, space, cx);
-			}
-
-			default:
-				throw new IllegalStateException(String.valueOf(methodId));
-		}
-	}
-
 	public String stringifyJSON(Object value, Object replacer, Object space, Context cx) {
 		return stringify(value, replacer, space, cx);
-	}
-
-	@Override
-	protected int findPrototypeId(String s) {
-		return switch (s) {
-			case "toSource" -> Id_toSource;
-			case "parse" -> Id_parse;
-			case "stringify" -> Id_stringify;
-			default -> 0;
-		};
 	}
 }
