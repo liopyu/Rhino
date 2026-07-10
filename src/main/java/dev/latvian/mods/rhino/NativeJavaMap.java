@@ -111,12 +111,28 @@ public class NativeJavaMap extends NativeJavaObject {
 
 	@Override
 	public void put(Context cx, String name, Scriptable start, Object value) {
-		map.put(cx.jsToJava(name, mapKeyType), cx.jsToJava(value, mapValueType));
+		Object key = toMapKey(cx, name);
+		if (key != INVALID_KEY) {
+			try {
+				map.put(key, cx.jsToJava(value, mapValueType));
+				return;
+			} catch (ClassCastException | NullPointerException ignored) {
+			}
+		}
+		super.put(cx, name, start, value);
 	}
 
 	@Override
 	public void put(Context cx, int index, Scriptable start, Object value) {
-		map.put(cx.jsToJava(index, mapKeyType), cx.jsToJava(value, mapValueType));
+		Object key = toMapKey(cx, index);
+		if (key != INVALID_KEY) {
+			try {
+				map.put(key, cx.jsToJava(value, mapValueType));
+				return;
+			} catch (ClassCastException | NullPointerException ignored) {
+			}
+		}
+		super.put(cx, index, start, value);
 	}
 
 	@Override

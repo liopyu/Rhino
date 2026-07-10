@@ -13,6 +13,10 @@ public class CollectionTests {
 		public static UUID one() {
 			return new UUID(0L, 1L);
 		}
+
+		public static UUID two() {
+			return new UUID(0L, 2L);
+		}
 	}
 
 	public static final RhinoTest TEST = new RhinoTest("collections").withScopeAction((cx, rootScope) -> {
