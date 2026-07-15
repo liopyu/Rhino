@@ -32,6 +32,27 @@ public class MangoRegressionTests {
 	}
 
 	@Test
+	public void computedPropKeyFromVariableInClosure() {
+		// Regression: before the 4a1e870a1 backport, NodeTransformer never walked the
+		// computed-key nodes stored in OBJECT_IDS_PROP, so the name was compiled as a
+		// dynamic scope lookup and missed register-allocated locals -> ReferenceError.
+		// Only worked at script top level.
+		TEST.test("computedPropKeyFromVariableInClosure", """
+			console.info((() => { let key = "kk"; let obj = { [key]: "arrow" }; return obj.kk; })());
+			console.info((function() { var key = "kk"; return { [key]: "fn" }.kk; })());
+			function mk(key) { return { [key]: "named" }; }
+			console.info(mk("kk").kk);
+			let mkArrow = (key) => ({ [key]: "param" });
+			console.info(mkArrow("kk").kk);
+			""", """
+			arrow
+			fn
+			named
+			param
+			""");
+	}
+
+	@Test
 	public void computedPropKeyFromStringLiteral() {
 		TEST.test("computedPropKeyFromStringLiteral", """
 			(() => {
